@@ -29,7 +29,6 @@ Wi-Fi AT Commands
 -  :ref:`AT+CWSTARTSMART <cmd-STARTS>`: Start SmartConfig.
 -  :ref:`AT+CWSTOPSMART <cmd-STOPS>`: Stop SmartConfig.
 -  :ref:`AT+WPS <cmd-WPS>`: Enable the WPS function.
--  :ref:`AT+MDNS <cmd-MDNS>`: Configure the mDNS function.
 -  :ref:`AT+CWJEAP <cmd-JEAP>`: Connect to a WPA2 Enterprise AP.
 -  :ref:`AT+CWHOSTNAME <cmd-HOSTNAME>`: Query/Set the host name of an {IDF_TARGET_NAME} station.
 -  :ref:`AT+CWCOUNTRY <cmd-COUNTRY>`: Query/Set the Wi-Fi Country Code.
@@ -44,7 +43,6 @@ Introduction
 
   - Enable EAP commands (:ref:`AT+CWJEAP <cmd-JEAP>`): ``Component config`` -> ``AT`` -> ``AT WPA2 Enterprise command support``
   - Disable WPS commands (:ref:`AT+WPS <cmd-WPS>`): ``Component config`` -> ``AT`` -> ``AT WPS command support``
-  - Disable mDNS commands (:ref:`AT+MDNS <cmd-MDNS>`): ``Component config`` -> ``AT`` -> ``AT MDNS command support``
   - Disable smartconfig commands (:ref:`AT+CWSTARTSMART <cmd-STARTS>` and :ref:`AT+CWSTOPSMART <cmd-STOPS>`): ``Component config`` -> ``AT`` -> ``AT smartconfig command support``
   - Disable all Wi-Fi commands (Not recommended. Once disabled, all Wi-Fi and above functions will be unusable, and you will need to implement these AT commands yourself): ``Component config`` -> ``AT`` -> ``AT wifi command support``
 
@@ -177,7 +175,22 @@ Parameters
 Note
 ^^^^^
 
--  The configuration changes will be saved in the NVS area if :ref:`AT+SYSSTORE=1 <cmd-SYSSTORE>`.
+- The configuration changes will be saved in the NVS area if :ref:`AT+SYSSTORE=1 <cmd-SYSSTORE>`.
+
+.. only:: esp32 or esp32c2 or esp32c3 or esp32c6
+
+  - If you have previously used the Bluetooth function, it is recommended to send the following commands to deinitialize the initialized functions before using the SoftAP or SoftAP+Station functions:
+
+    .. only:: esp32
+
+        - :ref:`AT+BTINIT=0 <cmd-BTINIT>` (Deinitialize Classic Bluetooth)
+
+    .. only:: esp32 or esp32c2 or esp32c3 or esp32c6
+
+        - :ref:`AT+BLEINIT=0 <cmd-BINIT>` (Deinitialize Bluetooth LE)
+        - :ref:`AT+BLUFI=0 <cmd-BLUFI>` (Disable BluFi)
+
+    For more details, please refer to the `RF Coexistence <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/api-guides/coexist.html>`_ documentation.
 
 Example
 ^^^^^^^^
@@ -322,7 +335,7 @@ Parameters
 
 -  **<ssid>**: the SSID of the target AP.
 
-   -  Escape character syntax is needed if SSID or password contains special characters, such ``,``, ``"``, or ``\\``.
+   -  Escape character syntax is needed if SSID or password contains special characters, such as ``,``, ``"``, or ``\``.
    -  Chinese SSID is supported. Chinese SSID of some routers or hotspots is not encoded in UTF-8 encoding format. You can scan SSID first, and then connect using the scanned SSID.
 
 -  **<pwd>**: password, MAX: 63-byte ASCII.
@@ -369,6 +382,7 @@ Notes
 -  The parameter ``<reconn_interval>`` of this command is the same as ``<interval_second>`` of the command :ref:`AT+CWRECONNCFG <cmd-RECONNCFG>`. Therefore, if you omit ``<reconn_interval>`` when running this command, the interval between Wi-Fi reconnections will use the default value 1.
 -  If the ``<ssid>`` and ``<password>`` parameter are omitted, AT will use the last configuration.
 -  Execute command has the same maximum timeout to setup command. The default value is 15 seconds, but you can change it by setting the parameter ``<jap_timeout>``.
+-  The authentication method via `WAPI <https://en.wikipedia.org/wiki/WLAN_Authentication_and_Privacy_Infrastructure>`_ is not supported for connecting to the router.
 -  To get an IPv6 address, you need to set :ref:`AT+CIPV6=1 <cmd-IPV6>`.
 -  Response ``OK`` means that the IPv4 network is ready, but not the IPv6 network. At present, ESP-AT is mainly based on IPv4 network, supplemented by IPv6 network.
 -  ``WIFI GOT IPv6 LL`` represents that the linklocal IPv6 address has been obtained. This address is calculated locally through EUI-64 and does not require the participation of the AP. Because of the parallel timing, this print may be before or after ``OK``.
@@ -523,6 +537,10 @@ Parameters
    -  bit 8: determine whether AP with ``WAPI_PSK`` authmode will be shown.
    -  bit 9: determine whether AP with ``OWE`` authmode will be shown.
 
+   .. only:: esp32c6
+
+     -  bit 10: determine whether AP with ``WPA3_ENT_SUITE_B_192_BIT`` authmode will be shown.
+
 Example
 ^^^^^^^^
 
@@ -572,7 +590,7 @@ List all available APs.
 
 ::
 
-    +CWLAP:<ecn>,<ssid>,<rssi>,<mac>,<channel>,<freq_offset>,<freqcal_val>,<pairwise_cipher>,<group_cipher>,<bgn>,<wps>
+    +CWLAP:(<ecn>,<ssid>,<rssi>,<mac>,<channel>,<freq_offset>,<freqcal_val>,<pairwise_cipher>,<group_cipher>,<bgn>,<wps>)
     OK
 
 Parameters
@@ -590,6 +608,10 @@ Parameters
    -  7: WPA2_WPA3_PSK
    -  8: WAPI_PSK
    -  9: OWE
+
+   .. only:: esp32c6
+
+     -  10: WPA3_ENT_SUITE_B_192_BIT
 
 -  **<ssid>**: string parameter showing SSID of the AP.
 -  **<rssi>**: signal strength.
@@ -923,7 +945,7 @@ Query Command
 
 ::
 
-    +CWDHCPS=<lease time>,<start IP>,<end IP>
+    +CWDHCPS:<lease time>,<start IP>,<end IP>
     OK
 
 Set Command
@@ -975,8 +997,24 @@ Example
 
 .. _cmd-AUTOC:
 
-:ref:`AT+CWAUTOCONN <WiFi-AT>`: Automatically Connect to an AP When Powered on
---------------------------------------------------------------------------------
+:ref:`AT+CWAUTOCONN <WiFi-AT>`: Query/Set Automatic Connection to an AP When Powered on
+-----------------------------------------------------------------------------------------------
+
+Query Command
+^^^^^^^^^^^^^
+
+**Command:**
+
+::
+
+    AT+CWAUTOCONN?
+
+**Response:**
+
+::
+
+    +CWAUTOCONN:<enable>
+    OK
 
 Set Command
 ^^^^^^^^^^^
@@ -1031,7 +1069,7 @@ Query Command
 
 ::
 
-    +CWAPPROTO=<protocol>
+    +CWAPPROTO:<protocol>
     OK
 
 Set Command
@@ -1071,7 +1109,7 @@ Note
 
 -  See `Wi-Fi Protocol Mode <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/api-guides/wifi.html#wi-fi-protocol-mode>`_ for the PHY mode supported by the {IDF_TARGET_NAME} device.
 
-.. only:: esp32 or esp32c3 or esp32c2
+.. only:: esp32 or esp32c3 or esp32c2 or esp32s2
 
   -  By default, PHY mode of {IDF_TARGET_NAME} is 802.11bgn mode.
 
@@ -1097,7 +1135,7 @@ Query Command
 
 ::
 
-    +CWSTAPROTO=<protocol>
+    +CWSTAPROTO:<protocol>
     OK
 
 Set Command
@@ -1137,7 +1175,7 @@ Note
 
 -  See `Wi-Fi Protocol Mode <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/api-guides/wifi.html#wi-fi-protocol-mode>`_ for the PHY mode supported by the {IDF_TARGET_NAME} device.
 
-.. only:: esp32 or esp32c3 or esp32c2
+.. only:: esp32 or esp32c3 or esp32c2 or esp32s2
 
   -  By default, PHY mode of {IDF_TARGET_NAME} is 802.11bgn mode.
 
@@ -1592,48 +1630,6 @@ Example
 
     AT+CWMODE=1
     AT+WPS=1
-
-.. _cmd-MDNS:
-
-:ref:`AT+MDNS <WiFi-AT>`: Configure the mDNS Function
-------------------------------------------------------------
-
-Set Command
-^^^^^^^^^^^
-
-**Command:**
-
-::
-
-    AT+MDNS=<enable>[,<hostname>,<service_name>,<port>]
-
-**Response:**
-
-::
-
-    OK 
-
-Parameters
-^^^^^^^^^^
-
--  **<enable>**:
-
-   -  1: Enable the mDNS function. The following three parameters need to be set.
-   -  0: Disable the mDNS function. The following three parameters does not need to be set.
-
--  **<hostname>**: mDNS host name.
--  **<service_name>**: mDNS service name.
--  **<port>**: mDNS port.
-
-Example
-^^^^^^^^
-
-::
-
-    AT+CWMODE=1
-    AT+CWJAP="1234567890","1234567890"
-    AT+MDNS=1,"espressif","_iot",8080  
-    AT+MDNS=0
 
 .. _cmd-JEAP:
 

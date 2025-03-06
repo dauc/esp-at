@@ -1,29 +1,9 @@
 /*
- * ESPRESSIF MIT License
+ * SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
  *
- * Copyright (c) 2017 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
- *
- * Permission is hereby granted for use on ESPRESSIF SYSTEMS ESP32 only, in which case,
- * it is free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
- * to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or
- * substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- *
+ * SPDX-License-Identifier: Apache-2.0
  */
-
-#ifndef __ESP_AT_CORE_H__
-#define __ESP_AT_CORE_H__
+#pragma once
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -52,21 +32,23 @@ typedef struct {
  *
  */
 typedef struct {
-    int32_t (*read_data) (uint8_t *data, int32_t len);              /*!< read data from device */
+    int32_t (*read_data)(uint8_t *data, int32_t len);               /*!< read data from device */
     int32_t (*write_data)(uint8_t *data, int32_t len);              /*!< write data into device */
 
     int32_t (*get_data_length)(void);                               /*!< get the length of data received */
     bool (*wait_write_complete)(int32_t timeout_msec);              /*!< wait write finish */
 } esp_at_device_ops_struct;
 
+typedef int32_t (*at_read_data_fn_t)(uint8_t *data, int32_t len);
 typedef int32_t (*at_write_data_fn_t)(uint8_t *data, int32_t len);
+typedef int32_t (*at_get_data_len_fn_t)(void);
 
 /**
  * @brief esp_at_custom_net_ops_struct
  * custom socket callback for AT
  */
 typedef struct {
-    int32_t (*recv_data)(uint8_t*data,int32_t len);  /*!< callback when socket received data */
+    int32_t (*recv_data)(uint8_t*data, int32_t len); /*!< callback when socket received data */
     void (*connect_cb)(void);                        /*!< callback when socket connection is built */
     void (*disconnect_cb)(void);                     /*!< callback when socket connection is disconnected */
 } esp_at_custom_net_ops_struct;
@@ -77,7 +59,7 @@ typedef struct {
  *
  */
 typedef struct {
-    int32_t (*recv_data)(uint8_t*data,int32_t len);  /*!< callback when ble received data */
+    int32_t (*recv_data)(uint8_t*data, int32_t len); /*!< callback when ble received data */
     void (*connect_cb)(void);                        /*!< callback when ble connection is built */
     void (*disconnect_cb)(void);                     /*!< callback when ble connection is disconnected */
 } esp_at_custom_ble_ops_struct;
@@ -107,10 +89,11 @@ typedef enum {
  *
  */
 typedef struct {
-    void (*status_callback) (esp_at_status_type status);              /*!< callback when AT status changes */
-    void (*pre_sleep_callback)(at_sleep_mode_t mode);                 /*!< callback before enter modem sleep and light sleep */
-    void (*pre_deepsleep_callback) (void);                            /*!< callback before enter deep sleep */
-    void (*pre_restart_callback) (void);                              /*!< callback before restart */
+    void (*status_callback)(esp_at_status_type status);               /*!< callback when AT status changes */
+    void (*pre_sleep_callback)(at_sleep_mode_t mode);                 /*!< callback before entering light sleep */
+    void (*pre_wakeup_callback)(void);                                /*!< callback before waking up from light sleep */
+    void (*pre_deepsleep_callback)(void);                             /*!< callback before enter deep sleep */
+    void (*pre_restart_callback)(void);                               /*!< callback before restart */
     void (*pre_active_write_data_callback)(at_write_data_fn_t);       /*!< callback before write data */
 } esp_at_custom_ops_struct;
 
@@ -118,7 +101,7 @@ typedef struct {
  * @brief AT specific callback type
  *
  */
-typedef void (*esp_at_port_specific_callback_t) (void);
+typedef void (*esp_at_port_specific_callback_t)(void);
 // error number
 /**
  * @brief module number,Now just AT module
@@ -164,7 +147,6 @@ typedef enum {
 #define ESP_AT_CMD_ERROR_CMD_PROCESSING               ESP_AT_ERROR_NO(ESP_AT_SUB_CMD_PROCESSING,0x00)                           /*!< processing of previous command is in progress */
 #define ESP_AT_CMD_ERROR_CMD_OP_ERROR                 ESP_AT_ERROR_NO(ESP_AT_SUB_CMD_OP_ERROR,0x00)                             /*!< the command operation type is error */
 
-
 /**
  * @brief the result of AT parse
  *
@@ -192,12 +174,11 @@ typedef enum {
 } esp_at_result_code_string_index;
 
 /**
- * @brief This function should be called only once, before any other AT functions are called.
+ * @brief This function should be called only once.
  *
- * @param netconn_max the maximum number of the link in the at module
  * @param custom_version version information by custom
  */
-void esp_at_module_init(uint32_t netconn_max, const uint8_t *custom_version);
+void esp_at_module_init(const uint8_t *custom_version);
 
 /**
  * @brief Parse digit parameter from command string.
@@ -299,7 +280,7 @@ void esp_at_device_ops_regist(esp_at_device_ops_struct* ops);
  *
  *  Note: Make sure this API call after esp_at_module_init.
  */
-bool esp_at_custom_net_ops_regist (int32_t link_id,esp_at_custom_net_ops_struct* ops);
+bool esp_at_custom_net_ops_regist(int32_t link_id, esp_at_custom_net_ops_struct* ops);
 
 /*
  *  @brief regist custom callback about ble status,
@@ -366,11 +347,11 @@ int32_t  esp_at_port_active_write_data(uint8_t *data, int32_t len);
  * @param data data buffer
  * @param len data length
  *
- * @return 
+ * @return
  *  - >= 0 : the real length of the data read from device
  *  - others : fail
  */
-int32_t esp_at_port_read_data(uint8_t*data,int32_t len);
+int32_t esp_at_port_read_data(uint8_t*data, int32_t len);
 
 /**
  * @brief wait for transmitting data completely to peer device,
@@ -391,128 +372,6 @@ bool esp_at_port_wait_write_complete(int32_t timeout_msec);
  *  - others : fail
  */
 int32_t esp_at_port_get_data_length(void);
-
-/**
- * @brief regist at base command set. If not,you can not use AT base command
- *
- */
-bool esp_at_base_cmd_regist(void);
-/**
- * @brief regist at user command set. If not,you can not use AT user command
- *
- */
-bool esp_at_user_cmd_regist(void);
-/**
- * @brief regist at wifi command set. If not,you can not use AT wifi command
- *
- */
-bool esp_at_wifi_cmd_regist(void);
-/**
- * @brief regist at net command set. If not,you can not use AT net command
- *
- */
-bool esp_at_net_cmd_regist(void);
-/**
- * @brief regist at mdns command set. If not,you can not use AT mdns command
- *
- */
-
-bool esp_at_mdns_cmd_regist(void);
-
-/**
- * @brief regist at driver command set. If not,you can not use AT driver command
- *
- */
-bool esp_at_driver_cmd_regist(void);
-
-/**
- * @brief regist at wps command set. If not,you can not use AT wps command
- *
- */
-bool esp_at_wps_cmd_regist(void);
-
-/**
- * @brief regist at smartconfig command set. If not,you can not use AT smartconfig command
- *
- */
-bool esp_at_smartconfig_cmd_regist(void);
-
-/**
- * @brief regist at ping command set. If not,you can not use AT ping command
- *
- */
-bool esp_at_ping_cmd_regist(void);
-
-/**
- * @brief regist at http command set. If not,you can not use AT http command
- *
- */
-bool esp_at_http_cmd_regist(void);
-
-/**
- * @brief regist at mqtt command set. If not,you can not use AT mqtt command
- *
- */
-bool esp_at_mqtt_cmd_regist(void);
-/**
- * @brief regist at ble command set. If not,you can not use AT ble command
- *
- */
-bool esp_at_ble_cmd_regist(void);
-
-/**
- * @brief regist at ble hid command set. If not,you can not use AT ble hid command
- *
- */
-bool esp_at_ble_hid_cmd_regist(void);
-
-/**
- * @brief regist at blufi command set. If not,you can not use AT blufi command
- *
- */
-bool esp_at_blufi_cmd_regist(void);
-
-/**
-* @brief regist at bt command set. If not,you can not use AT bt command
-*
-*/
-bool esp_at_bt_cmd_regist(void);
-
-/**
-* @brief regist at bt spp command set. If not,you can not use AT bt spp command
-*
-*/
-bool esp_at_bt_spp_cmd_regist(void);
-
-/**
-* @brief regist at bt a2dp command set. If not,you can not use AT bt a2dp command
-*
-*/
-bool esp_at_bt_a2dp_cmd_regist(void);
-
-/**
- * @brief regist at fs command set. If not,you can not use AT fs command
- *
- *
- */
-bool esp_at_fs_cmd_regist(void);
-
-/**
- * @brief regist at WPA2 Enterprise AP command set. If not,you can not use AT EAP command
- *
- */
-bool esp_at_eap_cmd_regist(void);
-
-/**
- * @brief regist at ethernet command set. If not,you can not use AT ethernet command
- *
- */
-bool esp_at_eth_cmd_regist(void);
-
-/**
- * @brief regist at websocket command set. If not, you can not use AT fs command
- */
-bool esp_at_ws_cmd_regist(void);
 
 /**
  * @brief Set AT command terminator, by default, the terminator is "\r\n"
@@ -537,18 +396,11 @@ uint8_t* esp_at_custom_cmd_line_terminator_get(void);
  * @param type: the type of the partition
  * @param subtype: the subtype of the partition
  * @param label: Partition label
- * 
+ *
  * @return pointer to esp_partition_t structure, or NULL if no partition is found.
  *         This pointer is valid for the lifetime of the application
  */
 const esp_partition_t* esp_at_custom_partition_find(esp_partition_type_t type, esp_partition_subtype_t subtype, const char* label);
-
-/**
- * @brief regist at ethernet command set. If not,you can not use AT ethernet command
- *
- *
- */
-bool esp_at_eth_cmd_regist(void);
 
 /**
  * @brief Set AT core as specific status, it will call callback if receiving data.
@@ -559,7 +411,7 @@ bool esp_at_eth_cmd_regist(void);
  * {
  *     xSemaphoreGive(sync_sema);
  * }
- * 
+ *
  * void process_task(void* para)
  * {
  *     vSemaphoreCreateBinary(sync_sema);
@@ -589,6 +441,51 @@ void esp_at_port_exit_specific(void);
  */
 const uint8_t* esp_at_get_current_cmd_name(void);
 
-void at_handle_result_code(esp_at_result_code_string_index code, void *pbuf);
+/**
+ * @brief Get the version of the AT core library
+ *
+ * @param buffer: buffer to store the version string
+ * @param size: size of the buffer
+ *
+ * @return
+ * - > 0 : the real length of the version string
+ * - others : fail
+ */
+int32_t esp_at_get_core_version(char *buffer, uint32_t size);
 
-#endif
+/**
+ * @brief Mount FATFS partition
+ *
+ * @note if you want to use FATFS, you should enable "AT FS command support" in menuconfig first.
+ * @note esp-at uses a fixed partition for the filesystem, which defined in esp-at/module_config/$your_module_config/at_customize.csv,
+ *       and uses a fixed mount point "/fatfs".
+ * @note when using FATFS, you should call this function to mount the partition first,
+ *       and call at_fatfs_unmount() to unmount the partition when you don't need it.
+ *
+ * @return
+ * - true : succeed
+ * - false : fail
+*/
+bool at_fatfs_mount(void);
+
+/**
+ * @brief Unmount FATFS partition
+ *
+ * @return
+ * - true : succeed
+ * - false : fail
+*/
+bool at_fatfs_unmount(void);
+
+/**
+ * @brief Check if the string is NULL
+ *
+ * @param str: the string to be checked
+ *
+ * @return
+ * - true : the string is NULL
+ * - false : the string is not NULL
+ */
+bool at_str_is_null(uint8_t *str);
+
+void at_handle_result_code(esp_at_result_code_string_index code, void *pbuf);

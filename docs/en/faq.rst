@@ -86,19 +86,30 @@ What commands are supported by the default ESP-AT firmware on different modules,
 When the host MCU sends an AT command to the {IDF_TARGET_NAME} device, there is no response. What is the reason?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  A terminator ("AT\r\n") must be added after an AT command when the host MCU sending AT commands to an {IDF_TARGET_NAME} device. Please see :ref:`check-whether-at-works`.
+  A terminator ("AT\\r\\n") must be added after an AT command when the host MCU sending AT commands to an {IDF_TARGET_NAME} device. Please see :ref:`check-whether-at-works`.
+
+Why is Wi-Fi disconnected (``WIFI DISCONNECT`` printed)?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  You can check the Wi-Fi disconnection reason code on the :term:`AT log port`, which usually prints ``wifi disconnected, rc:<reason_code>``. The ``<reason_code>`` here refers to `Wi-Fi Reason Code <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/api-guides/wifi.html#wi-fi-reason-code>`_.
+
+What are the common Wi-Fi compatibility issues?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  - AMPDU compatibility issue. 
+ 
+    - If the router does not support AMPDU, {IDF_TARGET_NAME} will automatically disable the AMPDU function when interacting with the router. 
+    - If the router supports AMPDU but there is a compatibility issue with AMPDU transmission between the router and {IDF_TARGET_NAME}, it is recommended to disable the function on the router or {IDF_TARGET_NAME}. For information on how to disable it on {IDF_TARGET_NAME}, please refer to :doc:`Compile_and_Develop/How_to_clone_project_and_compile_it` and select the following options in the fifth step of configuring the project:
+
+      - Disable ``Component config`` -> ``Wi-Fi`` -> ``WiFi AMPDU TX``
+      - Disable ``Component config`` -> ``Wi-Fi`` -> ``WiFi AMPDU RX``
+
+  - Phy mode compatibility issue. If there is a compatibility issue with the phy mode between the router and {IDF_TARGET_NAME}, it is recommended to switch it on the router or {IDF_TARGET_NAME}. For how to switch it on {IDF_TARGET_NAME}, please refer to the :ref:`AT+CWSTAPROTO <cmd-STAPROTO>` command.
 
 Do AT commands support ESP-WIFI-MESH?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   Currently, AT commands do not support ESP-WIFI-MESH.
-
-Does AT support websocket commands?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-  - Not supported in the default firmware.
-  - It can be implemented by custom commands. See `websocket <https://github.com/espressif/esp-idf/tree/master/examples/protocols/websocket>`_ and :doc:`Compile_and_Develop/How_to_add_user-defined_AT_commands` for more information.
-
 
 .. Are there any examples of using AT commands to connect to aliyun or Tencent Cloud?
 .. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -141,7 +152,7 @@ Can the serial port baudrate be modified in AT Commands? (Default: 115200)
 After {IDF_TARGET_NAME} enters the passthrough mode using AT commands, can {IDF_TARGET_NAME} give a message if the connected hotspot is disconnected?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  - Yes, you can configure it with :ref:`AT+SYSMSG <cmd-SYSMSG>`, i.e., set AT+SYSMSG=4. In this way, the serial port will report "WIFI DISCONNECT\r\n" when the connected hotspot is disconnected.
+  - Yes, you can configure it with :ref:`AT+SYSMSG <cmd-SYSMSG>`, i.e., set AT+SYSMSG=4. In this way, the serial port will report ``WIFI DISCONNECT\\r\\n`` when the connected hotspot is disconnected.
   - Note that this command is added after AT v2.1.0. It is not available for v2.1.0 and earlier versions.
 
 .. only:: esp32
@@ -162,12 +173,12 @@ How to enable the notify and indicate functions on Bluetooth LE clients?
 
     AT+BLEGATTCWR=0,3,6,1,2
     >
-    // Write 0x01
+    // Write low byte 0x01 high byte 0x00 (if you want to use hex format, it is: 0100)
     OK
     // Server: +WRITE:0,1,6,1,2,<0x01>,<0x00>
     AT+BLEGATTCWR=0,3,7,1,2
     >
-    // Write 0x02
+    // Write low byte 0x02 high byte 0x00 (if you want to use hex format, it is: 0200)
     OK
     // Server: +WRITE:0,1,6,1,2,<0x02>,<0x00>
     // Writing ccc is a prerequisite for the server to be able to send notify and indicate
@@ -179,17 +190,6 @@ How big is the chip flash required for ESP-AT firmware on different modules?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   - For {IDF_TARGET_NAME} series modules, please refer to :doc:`ESP-AT Firmware Differences <Compile_and_Develop/esp-at_firmware_differences>`.
-
-.. only:: esp32
-
-  How does the {IDF_TARGET_NAME} AT communicate through the UART0 port?
-  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    The default AT firmware communicates through the UART1 port. If you want to communicate through UART0, please download and compile the ESP-AT project.
-
-    - Refer to :doc:`Compile_and_Develop/How_to_clone_project_and_compile_it` to set up the compiling environment;
-    - Modify the module's UART pins in your :component_file:`factory_param_data.csv <customized_partitions/raw_data/factory_param/factory_param_data.csv>`, i.e. change uart_tx_pin to GPIO1, and uart_tx_pin to GPIO3;
-    - Configure your esp-at project: ``./build.py menuconfig`` > ``Component config`` > ``Common ESP-related`` > ``UART for console output(Custom)`` > ``Uart peripheral to use for console output(0-1)(UART1)`` > ``(1)UART TX on GPIO# (NEW)`` > ``(3)UART TX on GPIO# (NEW)``.
 
 How to view the error log of AT firmware?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -230,9 +230,22 @@ How to test and optimize the throughput of {IDF_TARGET_NAME} AT?
 .. only:: esp32
 
   What is the maximum rate of {IDF_TARGET_NAME} AT default firmware Bluetooth LE UART transparent transmission? 
-  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     In an open office environment, when the serial port baud rate is 2000000, the average transmission rate of ESP-AT Bluetooth is 0.56 Mbps, and the average transmission rate of ESP-AT Bluetooth LE is 0.101 Mbps.
+
+How to modify the default maximum number of TCP segment retransmissions for {IDF_TARGET_NAME} AT?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  By default, the maximum number of TCP segment retransmissions for AT is 6. You can reconfigure the maximum number of TCP segment retransmissions (range: [3-12]) as follows:
+
+  - Please refer to the :doc:`compile ESP-AT project locally <../Compile_and_Develop/How_to_clone_project_and_compile_it>` document to compile the AT firmware. In step five, configure ``Maximum number of retransmissions of data segments``:
+  
+    ::
+
+      python build.py menuconfig > Component config > LWIP > TCP > Maximum number of retransmissions of data segments
+
+  - Please refer to the :doc:`compile ESP-AT project on the webpage <../Compile_and_Develop/How_to_build_project_with_web_page>` document to compile the AT firmware. In step 5.3, modify the value of `CONFIG_LWIP_TCP_MAXRTX <https://docs.espressif.com/projects/esp-idf/en/latest/{IDF_TARGET_PATH_NAME}/api-reference/kconfig.html#config-lwip-tcp-maxrtx>`_.
 
 Other
 -----
@@ -245,7 +258,7 @@ What interfaces of {IDF_TARGET_NAME} chips can be used to transmit AT commands?
     :esp32: - {IDF_TARGET_NAME} can transmit AT commands through UART and SDIO.
     :esp32c2 or esp32c3 or esp32c6: - {IDF_TARGET_NAME} can transmit AT commands through UART and SPI.
     - The default firmware uses UART for transmission. If you need SDIO or SPI interface to transmit AT commands, you can configure it through ``./build.py menuconfig`` > ``Component config`` > ``AT`` when compiling the ESP-AT project by yourself.
-    - See :project_file:`AT through SDIO <main/interface/sdio/README.md>`, :project_file:`AT through SPI <main/interface/hspi/README.md>`, or :project_file:`AT through socket <main/interface/socket/README.md>` for more details.
+    - See :project_file:`AT through SDIO <main/interface/sdio/README.md>`, :project_file:`AT through SPI <main/interface/spi/README.md>`, or :project_file:`AT through socket <main/interface/socket/README.md>` for more details.
 
 .. only:: esp32
 
@@ -290,3 +303,11 @@ How to enable debug log for AT?
     - Enable Wi-Fi debug: ``./build.py menuconfig`` > ``Component config`` > ``Wi-Fi`` > ``Wi-Fi debug log level`` set to ``Debug``.
     - Enable TCP/IP debug: ``./build.py menuconfig`` > ``Component config`` > ``LWIP`` > ``Enable LWIP Debug`` > Set the log level of the specific part you want to debug to ``Debug``.
     - Enable Bluetooth LE debug: ``./build.py menuconfig`` > ``Component config`` > ``Bluetooth`` > ``Bluedroid Options`` > ``Disable BT debug logs`` > ``BT DEBUG LOG LEVEL`` > Set the log level of the specific part you want to debug to ``Debug``.
+
+How does the AT command implement the functionality of resuming HTTP transfers after interrupts?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  - Currently, AT commands provide two methods:
+
+    - Specify the data range to be read using the HTTP Range field. For specific details, please refer to the example of :ref:`AT+HTTPCHEAD <cmd-HTTPCHEAD_example>`.
+    - You can construct an HTTP GET request using AT TCP series commands. Between steps 6 and 7 of the example :ref:`{IDF_TARGET_NAME} obtains socket data in passive receiving mode <example-passive_recv>`, add a step: Use the :ref:`AT+CIPSEND <cmd-SEND>` command to send your own HTTP GET request header to the server. In passive receive mode, for HTTP GET request data received from the server, the MCU needs to actively send the :ref:`AT+CIPRECVDATA <cmd-CIPRECVDATA>` command to read the data. This helps avoid situations where the MCU may be unable to process data promptly due to large amounts of data being transferred from the server.

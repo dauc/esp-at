@@ -1,30 +1,13 @@
 /*
- * ESPRESSIF MIT License
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
- * Copyright (c) 2019-2025 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
- *
- * Permission is hereby granted for use on ESPRESSIF SYSTEMS ESP32 only, in which case,
- * it is free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
- * to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or
- * substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- *
+ * SPDX-License-Identifier: Apache-2.0
  */
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include "sdkconfig.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -108,6 +91,7 @@ static int32_t s_user_ota_total_size = 0;
 static int32_t s_user_ota_recv_size = 0;
 static bool s_user_ota_is_chunked = true;
 static SemaphoreHandle_t s_at_user_sync_sema;
+static const char *TAG = "at-user";
 
 static void at_user_wait_data_cb(void)
 {
@@ -200,7 +184,7 @@ static uint8_t at_setup_cmd_userram(uint8_t para_num)
         while (xSemaphoreTake(s_at_user_sync_sema, portMAX_DELAY)) {
             had_written_len += esp_at_port_read_data(sp_user_ram + offset + had_written_len, length - had_written_len);
             if (had_written_len == length) {
-                printf("Recv %d bytes\r\n", had_written_len);
+                ESP_AT_LOGI(TAG, "recv %d bytes", had_written_len);
                 esp_at_port_exit_specific();
                 esp_at_port_write_data((uint8_t *)"\r\nWRITE OK\r\n", strlen("\r\nWRITE OK\r\n"));
                 had_written_len = esp_at_port_get_data_length();
@@ -226,10 +210,9 @@ static uint8_t at_setup_cmd_userram(uint8_t para_num)
         }
         uint8_t *pbuffer = calloc(1, at_min(AT_USERRAM_READ_BUFFER_SIZE, length) + HEAD_BUFFER_SIZE);
         if (pbuffer == NULL) {
-            printf("no mem %d\r\n", at_min(AT_USERRAM_READ_BUFFER_SIZE, length) + HEAD_BUFFER_SIZE);
             return ESP_AT_RESULT_CODE_ERROR;
         }
-        printf("to read %d bytes\r\n", length);
+        ESP_AT_LOGI(TAG, "to read %d bytes", length);
 
         uint32_t head_len = 0, had_read_len = 0, to_read_len = 0;
         do {
@@ -272,16 +255,16 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
     switch (evt->event_id) {
     case HTTP_EVENT_ERROR:
-        printf("http(https) error\r\n");
+        ESP_AT_LOGE(TAG, "http error");
         break;
     case HTTP_EVENT_ON_CONNECTED:
-        printf("http(https) connected\r\n");
+        ESP_AT_LOGI(TAG, "http connected");
         break;
     case HTTP_EVENT_HEADER_SENT:
-        printf("http(https) header sent\r\n");
+        ESP_AT_LOGI(TAG, "http header sent");
         break;
     case HTTP_EVENT_ON_HEADER:
-        printf("http(https) headed key=%s, value=%s\r\n", evt->header_key, evt->header_value);
+        ESP_AT_LOGI(TAG, "http header, key=%s, value=%s", evt->header_key, evt->header_value);
 
         // get OTA image size
         if (strcmp(evt->header_key, "Content-Length") == 0) {
@@ -295,17 +278,17 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 
         // chunked check
         if (s_user_ota_is_chunked) {
-            printf("receive len=%d, receive total len=%d\r\n", evt->data_len, s_user_ota_recv_size);
+            ESP_AT_LOGI(TAG, "receive len=%d, receive total len=%d", evt->data_len, s_user_ota_recv_size);
         } else {
-            printf("total_len=%d(%d), %0.1f%%!\r\n", s_user_ota_total_size, s_user_ota_recv_size, (s_user_ota_recv_size*1.0) * 100 / s_user_ota_total_size);
+            ESP_AT_LOGI(TAG, "total_len=%d(%d), %0.1f%%!", s_user_ota_total_size, s_user_ota_recv_size, (s_user_ota_recv_size * 1.0) * 100 / s_user_ota_total_size);
         }
 
         break;
     case HTTP_EVENT_ON_FINISH:
-        printf("http(https) finished\r\n");
+        ESP_AT_LOGI(TAG, "http finished");
         break;
     case HTTP_EVENT_DISCONNECTED:
-        printf("http(https) disconnected\r\n");
+        ESP_AT_LOGW(TAG, "http disconnected");
         break;
     default:
         break;
@@ -336,7 +319,6 @@ static uint8_t at_setup_cmd_userota(uint8_t para_num)
 
     uint8_t *url = (uint8_t *)calloc(1, length + 1);
     if (url == NULL) {
-        printf("no mem %d\r\n", length);
         return ESP_AT_RESULT_CODE_ERROR;
     }
 
@@ -371,7 +353,7 @@ static uint8_t at_setup_cmd_userota(uint8_t para_num)
         }
     }
 
-    printf("url is: %s\r\n", url);
+    ESP_AT_LOGI(TAG, "url: %s", url);
     vSemaphoreDelete(s_at_user_sync_sema);
     s_at_user_sync_sema = NULL;
 
@@ -403,7 +385,7 @@ static uint8_t at_setup_cmd_userota(uint8_t para_num)
         esp_at_response_result(ESP_AT_RESULT_CODE_OK);
         esp_at_port_wait_write_complete(ESP_AT_PORT_TX_WAIT_MS_MAX);
         esp_restart();
-        for(;;){
+        for (;;) {
         }
     } else {
         return ESP_AT_RESULT_CODE_ERROR;
@@ -420,12 +402,12 @@ static uint8_t at_query_cmd_userdocs(uint8_t *cmd_name)
 
     // https:<hostname>/<project>/<language>/<version>/<target>/<home_web_page>
     ret += snprintf((char *)buffer + ret, AT_USERDOCS_BUFFER_LEN_MAX - ret, "%s:\"https://%s/%s/%s/%s/%s/%s\"\r\n",
-        cmd_name, AT_DOCS_SERVER_HOSTNAME, AT_DOCS_PROJECT_PATH, AT_DOCS_LANGUAGE_EN,
-        AT_DOCS_VERSION, CONFIG_IDF_TARGET, AT_DOCS_HOME_WEB_PAGE);
+                    cmd_name, AT_DOCS_SERVER_HOSTNAME, AT_DOCS_PROJECT_PATH, AT_DOCS_LANGUAGE_EN,
+                    AT_DOCS_VERSION, CONFIG_IDF_TARGET, AT_DOCS_HOME_WEB_PAGE);
 
     ret += snprintf((char *)buffer + ret, AT_USERDOCS_BUFFER_LEN_MAX - ret, "%s:\"https://%s/%s/%s/%s/%s/%s\"\r\n",
-        cmd_name, AT_DOCS_SERVER_HOSTNAME, AT_DOCS_PROJECT_PATH, AT_DOCS_LANGUAGE_CN,
-        AT_DOCS_VERSION, CONFIG_IDF_TARGET, AT_DOCS_HOME_WEB_PAGE);
+                    cmd_name, AT_DOCS_SERVER_HOSTNAME, AT_DOCS_PROJECT_PATH, AT_DOCS_LANGUAGE_CN,
+                    AT_DOCS_VERSION, CONFIG_IDF_TARGET, AT_DOCS_HOME_WEB_PAGE);
 
     esp_at_port_write_data(buffer, ret);
     free(buffer);
@@ -454,7 +436,9 @@ void at_set_mcu_state_if_sleep(at_sleep_mode_t mode)
     }
 
     if (s_wkmcu_cfg.enable) {
+        gpio_hold_dis(s_wkmcu_cfg.wake_number);
         gpio_set_level(s_wkmcu_cfg.wake_number, !s_wkmcu_cfg.wake_signal);
+        gpio_hold_en(s_wkmcu_cfg.wake_number);
     }
 
     return;
@@ -468,7 +452,9 @@ void at_wkmcu_if_config(at_write_data_fn_t write_data_fn)
 
     switch (s_wkmcu_cfg.wake_mode) {
     case WKMCU_MODE_GPIO:
+        gpio_hold_dis(s_wkmcu_cfg.wake_number);
         gpio_set_level(s_wkmcu_cfg.wake_number, s_wkmcu_cfg.wake_signal);
+        gpio_hold_en(s_wkmcu_cfg.wake_number);
         break;
 
     case WKMCU_MODE_UART:
@@ -479,7 +465,7 @@ void at_wkmcu_if_config(at_write_data_fn_t write_data_fn)
         break;
     }
 
-    printf("wait %ums or wake-up signal\r\n", s_wkmcu_cfg.delay_ms);
+    ESP_AT_LOGI(TAG, "wait %ums or wake-up signal", s_wkmcu_cfg.delay_ms);
     EventBits_t uxBits = xEventGroupWaitBits(s_wkmcu_evt_group, s_wkmcu_cfg.check_mcu_awake, pdFALSE, pdFALSE, s_wkmcu_cfg.delay_ms / portTICK_PERIOD_MS);
 
     if (!(uxBits & s_wkmcu_cfg.check_mcu_awake)) {
@@ -490,7 +476,9 @@ void at_wkmcu_if_config(at_write_data_fn_t write_data_fn)
 
     // reverse wake up signal
     if (s_wkmcu_cfg.wake_mode == WKMCU_MODE_GPIO) {
+        gpio_hold_dis(s_wkmcu_cfg.wake_number);
         gpio_set_level(s_wkmcu_cfg.wake_number, !s_wkmcu_cfg.wake_signal);
+        gpio_hold_en(s_wkmcu_cfg.wake_number);
     }
 
     return;
@@ -597,7 +585,9 @@ static uint8_t at_setup_cmd_userwkmcucfg(uint8_t para_num)
             io_conf.pull_down_en = false;
             io_conf.intr_type = GPIO_INTR_DISABLE;
             gpio_config(&io_conf);
+            gpio_hold_dis(wk_number);
             gpio_set_level(wk_number, !wk_signal);
+            gpio_hold_en(wk_number);
         }
     } else {
         if (s_wkmcu_cfg.wake_mode == WKMCU_MODE_GPIO) {
@@ -658,7 +648,9 @@ static uint8_t at_setup_cmd_usermcusleep(uint8_t para_num)
         s_mcu_sleep = mcu_sleep;
 
         if (s_wkmcu_cfg.wake_mode == WKMCU_MODE_GPIO) {
+            gpio_hold_dis(s_wkmcu_cfg.wake_number);
             gpio_set_level(s_wkmcu_cfg.wake_number, !s_wkmcu_cfg.wake_signal);
+            gpio_hold_en(s_wkmcu_cfg.wake_number);
         }
     }
 
@@ -683,5 +675,7 @@ bool esp_at_user_cmd_regist(void)
 #endif
     return esp_at_custom_cmd_array_regist(s_at_user_cmd, sizeof(s_at_user_cmd) / sizeof(s_at_user_cmd[0]));
 }
+
+ESP_AT_CMD_SET_FIRST_INIT_FN(esp_at_user_cmd_regist, 24);
 
 #endif

@@ -2,7 +2,7 @@
 AT 命令集
 **************
 
-{IDF_TARGET_VER: default="undefined", esp32="5.0", esp32c2="5.0", esp32c3="5.0", esp32c6="5.1"}
+{IDF_TARGET_VER: default="5.4"}
 
 :link_to_translation:`en:[English]`
 
@@ -14,7 +14,7 @@ AT 命令集
    基础 AT 命令集 <Basic_AT_Commands>
    Wi-Fi AT 命令集 <Wi-Fi_AT_Commands>
    TCP-IP AT 命令集 <TCP-IP_AT_Commands>
-   Bluetooth® Low Energy 命令集 <BLE_AT_Commands>
+   :esp32 or esp32c2 or esp32c3 or esp32c6: Bluetooth® Low Energy 命令集 <BLE_AT_Commands>
    :esp32: Bluetooth® AT 命令集 <BT_AT_Commands>
    MQTT AT 命令集 <MQTT_AT_Commands>
    HTTP AT 命令集 <HTTP_AT_Commands>
@@ -78,7 +78,7 @@ AT 命令分类
 
       AT+CWSAP="ESP756290","21030826",1,4
 
--  特殊字符需作转义处理，如 ``,``、``"``、``\`` 等。
+-  特殊字符需作转义处理，当前需要转义的字符有 ``,``、``"``、``\``。
 
    -  ``\\``：转义反斜杠。
    -  ``\,``：转义逗号，分隔参数的逗号无需转义。
@@ -209,16 +209,16 @@ AT 消息
      * - +IPD
        - ESP-AT 在非透传模式下，已收到来自网络的数据。有以下的消息格式：
 
-         - 如果 AT+CIPMUX=0，AT+CIPRECVMODE=1，打印：``+IPD,<length>``
-         - 如果 AT+CIPMUX=1，AT+CIPRECVMODE=1，打印：``+IPD,<link_id>,<length>``
-         - 如果 AT+CIPMUX=0，AT+CIPRECVMODE=0，AT+CIPDINFO=0，打印：``+IPD,<length>:<data>``
-         - 如果 AT+CIPMUX=1，AT+CIPRECVMODE=0，AT+CIPDINFO=0，打印：``+IPD,<link_id>,<length>:<data>``
-         - 如果 AT+CIPMUX=0，AT+CIPRECVMODE=0，AT+CIPDINFO=1，打印：``+IPD,<length>,<"remote_ip">,<remote_port>:<data>``
-         - 如果 AT+CIPMUX=1，AT+CIPRECVMODE=0，AT+CIPDINFO=1，打印：``+IPD,<link_id>,<length>,<"remote_ip">,<remote_port>:<data>``
+         - 如果 AT+CIPMUX=0，AT+CIPRECVTYPE=1，打印：``+IPD,<length>``
+         - 如果 AT+CIPMUX=1，AT+CIPRECVTYPE=<link_id>,1，打印：``+IPD,<link_id>,<length>``
+         - 如果 AT+CIPMUX=0，AT+CIPRECVTYPE=0，AT+CIPDINFO=0，打印：``+IPD,<length>:<data>``
+         - 如果 AT+CIPMUX=1，AT+CIPRECVTYPE=<link_id>,0，AT+CIPDINFO=0，打印：``+IPD,<link_id>,<length>:<data>``
+         - 如果 AT+CIPMUX=0，AT+CIPRECVTYPE=0，AT+CIPDINFO=1，打印：``+IPD,<length>,<"remote_ip">,<remote_port>:<data>``
+         - 如果 AT+CIPMUX=1，AT+CIPRECVTYPE=<link_id>,0，AT+CIPDINFO=1，打印：``+IPD,<link_id>,<length>,<"remote_ip">,<remote_port>:<data>``
 
          其中的 ``link_id`` 为连接 ID，``length`` 为数据长度，``remote_ip`` 为远端 IP 地址，``remote_port`` 为远端端口号，``data`` 为数据。
 
-         注意：当这是个 SSL 连接时，在被动接收模式下（AT+CIPRECVMODE=1），AT 命令口回复的 ``length`` 可能和实际可读的 SSL 数据长度不一致。因为 AT 会优先返回 SSL 层可读的数据长度，如果 SSL 层可读的数据长度为 0，AT 会返回套接字层可读的数据长度。
+         注意：当这是个 SSL 连接时，在被动接收模式下（AT+CIPRECVTYPE=1），AT 命令口回复的 ``length`` 可能和实际可读的 SSL 数据长度不一致。因为 AT 会优先返回 SSL 层可读的数据长度，如果 SSL 层可读的数据长度为 0，AT 会返回套接字层可读的数据长度。
 
      * - :term:`透传模式` 下的数据
        - ESP-AT 在透传模式下，已收到来自网络或蓝牙的数据

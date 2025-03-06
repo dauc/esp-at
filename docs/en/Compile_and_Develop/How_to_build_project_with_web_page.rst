@@ -89,7 +89,7 @@ GitHub Actions is now enabled.
 Step 4. Configure the secrets required to compile the ESP-AT project
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you have an account and an OTA token of `the Espressif OTA server <http://iot.espressif.cn/#/>`_, and you need to upgrade the AT firmware by using the :ref:`AT+CIUPDATE <cmd-UPDATE>` command, you need to complete this step. Otherwise, it is recommended to disable CONFIG_AT_OTA_SUPPORT (see :ref:`at-wc-commit-changes` for details) or skip this step.
+If you have an account and an OTA token of `the Espressif OTA server <http://iot.espressif.cn>`_, and you need to upgrade the AT firmware by using the :ref:`AT+CIUPDATE <cmd-UPDATE>` command, you need to complete this step. Otherwise, it is recommended to disable CONFIG_AT_OTA_SUPPORT (see :ref:`at-wc-commit-changes` for details) or skip this step.
 
 Under the repository, click ``Setting`` to enter the settings page.
 
@@ -246,6 +246,9 @@ Enter a commit message to describe the changes you have made. Click ``Commit & P
     :scale: 70%
 
     Submit Changes (Click to Enlarge)
+
+.. note::
+  If you want to enable or disable the AT firmware's :ref:`silence mode <silence-mode-usage>`, please refer to the :doc:`How to enable or disable silence mode <How_to_configure_silence_mode>` document.
 
 .. _at-wc-action-compile:
 

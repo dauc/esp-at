@@ -15,7 +15,7 @@ TCP/IP AT Commands
 -  :ref:`[Data Mode Only] +++ <cmd-PLUS>`: Exit from the :term:`data mode`.
 -  :ref:`AT+SAVETRANSLINK <cmd-SAVET>`: Set whether to enter Wi-Fi :term:`Passthrough Mode` on power-up.
 -  :ref:`AT+CIPSEND <cmd-SEND>`: Send data in the :term:`normal transmission mode` or Wi-Fi :term:`normal transmission mode`.
--  :ref:`AT+CIPSENDL <cmd-SENDL>`: Send long data in paraller in the :term:`normal transmission mode`.
+-  :ref:`AT+CIPSENDL <cmd-SENDL>`: Send long data in parallel in the :term:`normal transmission mode`.
 -  :ref:`AT+CIPSENDLCFG <cmd-SENDLCFG>`: Set the configuration for the command :ref:`AT+CIPSENDL <cmd-SENDL>`.
 -  :ref:`AT+CIPSENDEX <cmd-SENDEX>`: Send data in the :term:`normal transmission mode` in expanded ways.
 -  :ref:`AT+CIPCLOSE <cmd-CLOSE>`: Close TCP/UDP/SSL connection.
@@ -35,13 +35,15 @@ TCP/IP AT Commands
 -  :ref:`AT+CIPSSLCCN <cmd-SSLCCN>`: Query/Set the Common Name of the SSL client.
 -  :ref:`AT+CIPSSLCSNI <cmd-SSLCSNI>`: Query/Set SSL client Server Name Indication (SNI).
 -  :ref:`AT+CIPSSLCALPN <cmd-SSLCALPN>`: Query/Set SSL client Application Layer Protocol Negotiation (ALPN).
--  :ref:`AT+CIPSSLCPSK <cmd-SSLCPSK>`: Query/Set SSL client Pre-shared Key (PSK).
+-  :ref:`AT+CIPSSLCPSK <cmd-SSLCPSK>`: Query/Set SSL client Pre-shared Key (PSK) in string format.
+-  :ref:`AT+CIPSSLCPSKHEX <cmd-SSLCPSKHEX>`: Query/Set SSL client Pre-shared Key (PSK) in hexadecimal format.
 -  :ref:`AT+CIPRECONNINTV <cmd-AUTOCONNINT>`: Query/Set the TCP/UDP/SSL reconnection interval for the Wi-Fi :term:`normal transmission mode`.
--  :ref:`AT+CIPRECVMODE <cmd-CIPRECVMODE>`: Query/Set socket receiving mode.
+-  :ref:`AT+CIPRECVTYPE <cmd-CIPRECVTYPE>`: Query/Set socket receiving mode.
 -  :ref:`AT+CIPRECVDATA <cmd-CIPRECVDATA>`: Obtain socket data in passive receiving mode.
 -  :ref:`AT+CIPRECVLEN <cmd-CIPRECVLEN>`: Obtain socket data length in passive receiving mode.
 -  :ref:`AT+PING <cmd-CIPPING>`: Ping the remote host.
 -  :ref:`AT+CIPDNS <cmd-DNS>`: Query/Set DNS server information.
+-  :ref:`AT+MDNS <cmd-MDNS>`: Configure the mDNS function.
 -  :ref:`AT+CIPTCPOPT <cmd-TCPOPT>`: Query/Set the socket options.
 
 .. _cmd-tcpip-intro:
@@ -54,6 +56,7 @@ Introduction
 
   - Disable OTA commands (:ref:`AT+CIUPDATE <cmd-UPDATE>` and :ref:`AT+CIPFWVER <cmd-FWVER>`): ``Component config`` -> ``AT`` -> ``AT OTA command support``
   - Disable PING commands (:ref:`AT+PING <cmd-CIPPING>`): ``Component config`` -> ``AT`` -> ``AT ping command support``
+  - Disable mDNS commands (:ref:`AT+MDNS <cmd-MDNS>`): ``Component config`` -> ``AT`` -> ``AT MDNS command support``
   - Disable TCP/IP commands (Not recommended. Once disabled, all TCP/IP functions will be unavailable and you will need to implement these AT commands yourself): ``Component config`` -> ``AT`` -> ``AT net command support``
 
 .. _cmd-IPV6:
@@ -218,7 +221,7 @@ Set Command
 
 ::
 
-    AT+CIPDOMAIN=<"domain name">[,<ip network>]
+    AT+CIPDOMAIN=<"domain name">[,<ip network>][,<timeout>]
 
 **Response:**
 
@@ -239,6 +242,7 @@ Parameter
    - 3: resolve IPv6 address only
 
 -  **<"IP address">**: the resolved IPv4 address or IPv6 address.
+-  **<timeout>**: Command timeout. Unit: milliseconds. Default value: 0. Range: [0,60000]. When set to 0, the command timeout depends on the network and lwIP protocol stack; when set to a non-zero value, the command will return within the specified timeout, but it will consume about 5 KB more heap space.
 
 Example
 ^^^^^^^^
@@ -263,6 +267,12 @@ Example
 :ref:`AT+CIPSTART <TCPIP-AT>`: Establish TCP Connection, UDP Transmission, or SSL Connection
 --------------------------------------------------------------------------------------------
 
+* :ref:`esp-at-cipstart-tcp`
+* :ref:`esp-at-cipstart-udp`
+* :ref:`esp-at-cipstart-ssl`
+
+.. _esp-at-cipstart-tcp:
+
 Establish TCP Connection
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -274,10 +284,10 @@ Set Command
 ::
 
     // Single connection (AT+CIPMUX=0):
-    AT+CIPSTART=<"type">,<"remote host">,<remote port>[,<keep_alive>][,<"local IP">]
+    AT+CIPSTART=<"type">,<"remote host">,<remote port>[,<keep_alive>][,<"local IP">][,<timeout>]
 
     // Multiple Connections (AT+CIPMUX=1):
-    AT+CIPSTART=<link ID>,<"type">,<"remote host">,<remote port>[,<keep_alive>][,<"local IP">]
+    AT+CIPSTART=<link ID>,<"type">,<"remote host">,<remote port>[,<keep_alive>][,<"local IP">][,<timeout>]
 
 **Response:**
 
@@ -302,7 +312,7 @@ Parameters
 
 -  **<link ID>**: ID of network connection (0~4), used for multiple connections. The range of this parameter depends on two configuration items in ``menuconfig``. One is ``AT_SOCKET_MAX_CONN_NUM`` of the ``AT`` component, and its default value is 5. The other is ``LWIP_MAX_SOCKETS`` of the ``LWIP`` component, and its default value is 10. To modify the range of this parameter, you need to set ``AT_SOCKET_MAX_CONN_NUM`` and make sure it is no larger than the value of ``LWIP_MAX_SOCKETS``. (See :doc:`../Compile_and_Develop/How_to_clone_project_and_compile_it` for details on configuring and build ESP-AT projects.)
 -  **<"type">**: string parameter showing the type of transmission: "TCP", or "TCPv6". Default: "TCP".
--  **<"remote host">**: IPv4 address, IPv6 address, or domain name of remote host. The maximum length is 64 bytes.
+-  **<"remote host">**: IPv4 address, IPv6 address, or domain name of remote host. The maximum length is 64 bytes. If you need to use a domain name and the length of the domain name exceeds 64 bytes, use the :ref:`AT+CIPDOMAIN <cmd-DOMAIN>` command to obtain the IP address corresponding to the domain name, and then use the IP address to establish a connection.
 -  **<remote port>**: the remote port number.
 -  **<keep_alive>**: It configures the `SO_KEEPALIVE <https://man7.org/linux/man-pages/man7/socket.7.html#SO_KEEPALIVE>`__ option for socket. Unit: second.
 
@@ -314,6 +324,7 @@ Parameters
    - This parameter of this command is the same as the ``<keep_alive>`` parameter of :ref:`AT+CIPTCPOPT <cmd-TCPOPT>` command. It always takes the value set later by either of the two commands. If it is omitted or not set, the last configured value is used by default.
 
 -  **<"local IP">**: the local IPv4 address or IPv6 address that the connection binds. This parameter is useful when you are using multiple network interfaces or multiple IP addresses. By default, it is disabled. If you want to use it, you should specify it first. Null is also valid.
+-  **<timeout>**: Command timeout. Unit: milliseconds. Default value: 0. Range: [0,60000]. When set to 0, the command timeout depends on the network and lwIP protocol stack; when set to a non-zero value, the command will return within the specified timeout, but it will consume about 5 KB more heap space.
 
 Notes
 """"""
@@ -334,11 +345,17 @@ Example
     AT+CIPSTART="TCP","192.168.101.110",1000
     AT+CIPSTART="TCP","192.168.101.110",2500,60
     AT+CIPSTART="TCP","192.168.101.110",1000,,"192.168.101.100"
+
+    // Connect to GitHub's TCP server with a 5-second timeout
+    AT+CIPSTART="TCP","www.github.com",80,,,5000
+
     AT+CIPSTART="TCPv6","test-ipv6.com",80
     AT+CIPSTART="TCPv6","fe80::860d:8eff:fe9d:cd90",1000,,"fe80::411c:1fdb:22a6:4d24"
 
     // esp-at has obtained an IPv6 global address by AT+CWJAP before
     AT+CIPSTART="TCPv6","2404:6800:4005:80b::2004",80,,"240e:3a1:2070:11c0:32ae:a4ff:fe80:65ac"
+
+.. _esp-at-cipstart-udp:
 
 Establish UDP Transmission
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -351,10 +368,10 @@ Set Command
 ::
 
     // Single connection (AT+CIPMUX=0):
-    AT+CIPSTART=<"type">,<"remote host">,<remote port>[,<local port>,<mode>,<"local IP">]
+    AT+CIPSTART=<"type">,<"remote host">,<remote port>[,<local port>,<mode>,<"local IP">][,<timeout>]
 
     // Multiple connections (AT+CIPMUX=1):
-    AT+CIPSTART=<link ID>,<"type">,<"remote host">,<remote port>[,<local port>,<mode>,<"local IP">]
+    AT+CIPSTART=<link ID>,<"type">,<"remote host">,<remote port>[,<local port>,<mode>,<"local IP">][,<timeout>]
 
 **Response:**
 
@@ -379,7 +396,7 @@ Parameters
 
 -  **<link ID>**: ID of network connection (0~4), used for multiple connections.
 -  **<"type">**: string parameter showing the type of transmission: "UDP", or "UDPv6". Default: "TCP".
--  **<"remote host">**: IPv4 address, IPv6 address, or domain name of remote host. The maximum length is 64 bytes.
+-  **<"remote host">**: IPv4 address, IPv6 address, or domain name of remote host. The maximum length is 64 bytes. If you need to use a domain name and the length of the domain name exceeds 64 bytes, use the :ref:`AT+CIPDOMAIN <cmd-DOMAIN>` command to obtain the IP address corresponding to the domain name, and then use the IP address to establish a connection.
 -  **<remote port>**: remote port number.
 -  **<local port>**: UDP port of {IDF_TARGET_NAME}.
 -  **<mode>**: In the UDP Wi-Fi passthrough, the value of this parameter has to be 0.
@@ -389,6 +406,7 @@ Parameters
    -  2: Each time UDP data is received, the ``<"remote host">`` and ``<remote port>`` will be changed to the IP address and port of the device that sends the data.
 
 -  **<"local IP">**: the local IPv4 address or IPv6 address that the connection binds. This parameter is useful when you are using multiple network interfaces or multiple IP addresses. By default, it is disabled. If you want to use it, you should specify it first. Null is also valid.
+-  **<timeout>**: Command timeout. Unit: milliseconds. Default value: 0. Range: [0,60000]. When set to 0, the command timeout depends on the network and lwIP protocol stack; when set to a non-zero value, the command will return within the specified timeout, but it will consume about 5 KB more heap space.
 
 Notes
 """"""
@@ -415,11 +433,16 @@ Example
     AT+CIPSTART="UDP","192.168.101.110",1000,1002,2
     AT+CIPSTART="UDP","192.168.101.110",1000,,,"192.168.101.100"
 
+    // Establish UDP transmission with pool.ntp.org, set 5-second timeout
+    AT+CIPSTART="UDP","pool.ntp.org",123,,,,5000
+
     // UDP unicast based on IPv6 network
     AT+CIPSTART="UDPv6","fe80::32ae:a4ff:fe80:65ac",1000,,,"fe80::5512:f37f:bb03:5d9b"
 
     // UDP multicast based on IPv6 network
     AT+CIPSTART="UDPv6","FF02::FC",1000,1002,0
+
+.. _esp-at-cipstart-ssl:
 
 Establish SSL Connection
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -432,10 +455,10 @@ Set Command
 ::
 
     // Single connection (AT+CIPMUX=0):
-    AT+CIPSTART=<"type">,<"remote host">,<remote port>[,<keep_alive>,<"local IP">]
+    AT+CIPSTART=<"type">,<"remote host">,<remote port>[,<keep_alive>,<"local IP">][,<timeout>]
 
     // Multiple connections (AT+CIPMUX=1):
-    AT+CIPSTART=<link ID>,<"type">,<"remote host">,<remote port>[,<keep_alive>,<"local IP">]
+    AT+CIPSTART=<link ID>,<"type">,<"remote host">,<remote port>[,<keep_alive>,<"local IP">][,<timeout>]
 
 **Response:**
 
@@ -460,7 +483,7 @@ Parameters
 
 -  **<link ID>**: ID of network connection (0~4), used for multiple connections.
 -  **<"type">**: string parameter showing the type of transmission: "SSL", or "SSLv6". Default: "TCP".
--  **<"remote host">**: IPv4 address, IPv6 address, or domain name of remote host. The maximum length is 64 bytes.
+-  **<"remote host">**: IPv4 address, IPv6 address, or domain name of remote host. The maximum length is 64 bytes. If you need to use a domain name and the length of the domain name exceeds 64 bytes, use the :ref:`AT+CIPDOMAIN <cmd-DOMAIN>` command to obtain the IP address corresponding to the domain name, and then use the IP address to establish a connection.
 -  **<remote port>**: the remote port number.
 -  **<keep_alive>**: It configures the `SO_KEEPALIVE <https://man7.org/linux/man-pages/man7/socket.7.html#SO_KEEPALIVE>`__ option for socket. Unit: second.
 
@@ -472,6 +495,7 @@ Parameters
    - This parameter of this command is the same as the ``<keep_alive>`` parameter of :ref:`AT+CIPTCPOPT <cmd-TCPOPT>` command. It always takes the value set later by either of the two commands. If it is omitted or not set, the last configured value is used by default.
 
 -  **<"local IP">**: the local IPv4 address or IPv6 address that the connection binds. This parameter is useful when you are using multiple network interfaces or multiple IP addresses. By default, it is disabled. If you want to use it, you should specify it first. Null is also valid.
+-  **<timeout>**: Command timeout. Unit: milliseconds. Default value: 0. Range: [0,60000]. When set to 0, the command timeout depends on the network and lwIP protocol stack; when set to a non-zero value, the command will return within the specified timeout, but it will consume about 5 KB more heap space.
 
 Notes
 """"""
@@ -494,6 +518,9 @@ Example
 
     AT+CIPSTART="SSL","iot.espressif.cn",8443
     AT+CIPSTART="SSL","192.168.101.110",1000,,"192.168.101.100"
+
+    // Connect to Microsoft Bing's SSL server with a 5-second timeout
+    AT+CIPSTART="SSL","www.bing.com",443,,,5000
 
     // esp-at has obtained an IPv6 global address by AT+CWJAP before
     AT+CIPSTART="SSLv6","240e:3a1:2070:11c0:6972:6f96:9147:d66d",1000,,"240e:3a1:2070:11c0:55ce:4e19:9649:b75"
@@ -624,7 +651,7 @@ Notes
 
 .. _cmd-SENDL:
 
-:ref:`AT+CIPSENDL <TCPIP-AT>`: Send Long Data in Paraller in the :term:`Normal Transmission Mode`.
+:ref:`AT+CIPSENDL <TCPIP-AT>`: Send Long Data in Parallel in the :term:`Normal Transmission Mode`.
 --------------------------------------------------------------------------------------------------
 
 Set Command
@@ -1379,7 +1406,7 @@ Note
 -  The asctime style time is defined at `asctime man page <https://linux.die.net/man/3/asctime>`_.
 -  When {IDF_TARGET_NAME} enters Light-sleep or Deep-sleep mode and then wakes up, the system time may become inaccurate. It is recommended to resend the :ref:`AT+CIPSNTPCFG <cmd-SNTPCFG>` command to obtain the new time from the NTP server.
 
-.. only:: esp32 or esp32c3 or esp32c6
+.. only:: esp32 or esp32c3 or esp32c6 or esp32s2
 
   - The time obtained from SNTP is stored in the RTC area, so it will not be lost after a software reset (chip does not lose power).
 
@@ -1635,7 +1662,7 @@ Notes
 -  After you upgrade the AT firmware, you are suggested to call the command :ref:`AT+RESTORE <cmd-RESTORE>` to restore the factory default settings.
 -  The timeout of OTA process is ``3`` minutes.
 -  The response ``OK`` in non-blocking mode does not necessarily come before the response ``+CIPUPDATE:<state>``. It may be output before ``+CIPUPDATE:<state>`` or after it.
--  Upgraded to an older version is not recommended.
+-  Downgrading to an older version is not recommended due to potential compatibility issues and the risk of operational failure. If you still prefer downgrading to an older version, please test and verify the functionality based on your product.
 -  Please refer to :doc:`../Compile_and_Develop/How_to_implement_OTA_update` for more OTA commands.
 
 Example
@@ -1645,7 +1672,7 @@ Example
 
     AT+CWMODE=1
     AT+CWJAP="1234567890","1234567890"
-    AT+CIUPDATE  
+    AT+CIUPDATE
     AT+CIUPDATE=1
     AT+CIUPDATE=1,"v1.2.0.0"
     AT+CIUPDATE=1,"v2.2.0.0","mqtt_ca"
@@ -1951,8 +1978,8 @@ Note
 
 .. _cmd-SSLCPSK:
 
-:ref:`AT+CIPSSLCPSK <TCPIP-AT>`: Query/Set SSL Client Pre-shared Key (PSK)
---------------------------------------------------------------------------
+:ref:`AT+CIPSSLCPSK <TCPIP-AT>`: Query/Set SSL Client Pre-shared Key (PSK) in String Format
+-------------------------------------------------------------------------------------------
 
 Query Command
 ^^^^^^^^^^^^^
@@ -1997,12 +2024,32 @@ Parameters
 ^^^^^^^^^^
 
 -  **<link ID>**: ID of the connection (0 ~ max). For single connection, <link ID> is 0. For multiple connections, if the value is max, it means all connections, max is 5 by default.
--  **<"psk">**: PSK identity. Maximum length: 32.
+-  **<"psk">**: PSK identity in string format. Maximum length: 32. Please use :ref:`AT+CIPSSLCPSKHEX <cmd-SSLCPSKHEX>` command if your ``<"psk">`` parameter contains ``\0`` characters.
 -  **<"hint">**: PSK hint. Maximum length: 32.
 
 Notes
 ^^^^^
 -  If you want this configuration to take effect immediately, run this command before establishing the SSL connection.
+
+.. _cmd-SSLCPSKHEX:
+
+:ref:`AT+CIPSSLCPSKHEX <TCPIP-AT>`: Query/Set SSL Client Pre-shared Key (PSK) in Hexadecimal Format
+---------------------------------------------------------------------------------------------------
+
+Note
+^^^^^
+- Similar to the :ref:`AT+CIPSSLCPSK <cmd-SSLCPSK>` command, this command also sets or queries the SSL Client PSK, but its ``<"psk">`` is in hexadecimal format rather than in string format. So, ``\0`` in the ``<"psk">`` parameter means ``00``.
+
+Example
+^^^^^^^^
+
+::
+
+    // Single connection: (AT+CIPMUX=0), PSK identity is "psk", PSK hint is "myhint".
+    AT+CIPSSLCPSKHEX="70736b","myhint"
+
+    // Multiple connections: (AT+CIPMUX=1), PSK identity is "psk", PSK hint is "myhint".
+    AT+CIPSSLCPSKHEX=0,"70736b","myhint"
 
 .. _cmd-AUTOCONNINT:
 
@@ -2065,9 +2112,9 @@ Example
 
     AT+CIPRECONNINTV=10  
 
-.. _cmd-CIPRECVMODE:
+.. _cmd-CIPRECVTYPE:
 
-:ref:`AT+CIPRECVMODE <TCPIP-AT>`: Query/Set Socket Receiving Mode
+:ref:`AT+CIPRECVTYPE <TCPIP-AT>`: Query/Set Socket Receiving Mode
 -----------------------------------------------------------------
 
 Query Command
@@ -2081,13 +2128,14 @@ Query the socket receiving mode.
 
 ::
 
-    AT+CIPRECVMODE?
+    AT+CIPRECVTYPE?
 
 **Response:**
 
 ::
 
-    +CIPRECVMODE:<mode>
+    +CIPRECVTYPE:<link ID>,<mode>
+
     OK
 
 Set Command
@@ -2097,7 +2145,11 @@ Set Command
 
 ::
 
-    AT+CIPRECVMODE=<mode>
+    // Single connection: (AT+CIPMUX=0)
+    AT+CIPRECVTYPE=<mode>
+
+    // Multiple connections: (AT+CIPMUX=1)
+    AT+CIPRECVTYPE=<link ID>,<mode>
 
 **Response:**
 
@@ -2108,6 +2160,7 @@ Set Command
 Parameter
 ^^^^^^^^^^
 
+-  **<link ID>**: ID of the connection (0 ~ max). For a single connection, <link ID> is 0. For multiple connections, if the value is max, it means all connections. Max is 5 by default.
 - **<mode>**: the receive mode of socket data. Default: 0.
    
    - 0: active mode. ESP-AT will send all the received socket data instantly to the host MCU with the header "+IPD". (The socket receive window is 5760 bytes by default. The maximum valid bytes sent to MCU is 2920 bytes each time.)
@@ -2133,7 +2186,11 @@ Example
 
 ::
 
-    AT+CIPRECVMODE=1   
+    // Set passive mode in single connection mode
+    AT+CIPRECVTYPE=1
+
+    // Set all connections to passive mode in multiple connections mode
+    AT+CIPRECVTYPE=5,1
 
 .. _cmd-CIPRECVDATA:
 
@@ -2177,12 +2234,19 @@ Parameters
 -  **<"remote IP">**: string parameter showing the remote IPv4 address or IPv6 address, enabled by the command :ref:`AT+CIPDINFO=1 <cmd-IPDINFO>`.
 -  **<remote port>**: the remote port number, enabled by the command :ref:`AT+CIPDINFO=1 <cmd-IPDINFO>`.
 
+Note
+^^^^^
+
+- The command needs to be executed in passive receive mode. Otherwise, ERROR is returned. You can verify whether AT is in passive receive mode by using the :ref:`AT+CIPRECVTYPE <cmd-CIPRECVTYPE>` command.
+- When this command is executed without any data available to read, it will directly return ERROR. You can verify if there is readable data at that time by using the :ref:`AT+CIPRECVLEN? <cmd-CIPRECVLEN>` command.
+- When executing the command ``AT+CIPRECVDATA=<len>``, at least ``<len> + 128`` bytes of memory are required. You can use the command :ref:`AT+SYSRAM? <Basic-AT>` to check the current available memory. When insufficient memory leads to a memory allocation failure, this command will also return ERROR. You can review the :doc:`AT log output </Get_Started/Hardware_connection>` for ``alloc fail`` or similar print messages to confirm whether a memory allocation failure has occurred.
+
 Example
 ^^^^^^^^
 
 ::
 
-    AT+CIPRECVMODE=1
+    AT+CIPRECVTYPE=1
 
     // For example, if host MCU gets a message of receiving 100-byte data in connection with No.0, 
     // the message will be "+IPD,0,100".
@@ -2222,7 +2286,7 @@ Parameters
 Note
 ^^^^^
 
--  For SSL connections, ESP-AT will return the length of the encrypted data, so the returned length will be larger than the real data length.
+-  For SSL connections, the data length returned by ESP-AT may be less than the actual data length.
 
 Example
 ^^^^^^^^
@@ -2377,6 +2441,57 @@ Example
     // second DNS Server based on IPv6: google-public-dns-a.google.com
     // third DNS Server based on IPv6: main DNS Server based on IPv6 in JiangSu Province, China
     AT+CIPDNS=1,"240c::6666","2001:4860:4860::8888","240e:5a::6666"
+
+.. _cmd-MDNS:
+
+:ref:`AT+MDNS <WiFi-AT>`: Configure the mDNS Function
+------------------------------------------------------------
+
+Set Command
+^^^^^^^^^^^
+
+**Command:**
+
+::
+
+    AT+MDNS=<enable>[,<"hostname">,<"service_type">,<port>][,<"instance">][,<"proto">][,<txt_number>][,<"key">,<"value">][...]
+
+**Response:**
+
+::
+
+    OK
+
+Parameters
+^^^^^^^^^^
+
+-  **<enable>**:
+
+   -  1: Enable the mDNS function. The following parameters need to be set.
+   -  0: Disable the mDNS function. Please do not set the following parameters.
+
+- **<"hostname">**: mDNS host name.
+- **<"service_type">**: mDNS service type.
+- **<port>**: mDNS service port.
+- **<"instance">**: mDNS instance name. Default: ``<"hostname">``.
+- **<"proto">**: mDNS service protocol. Recommended values: ``_tcp`` or ``_udp``. Default: ``_tcp``.
+- **<txt_number>**: the number of key-value pairs in the TXT record. Range: [1,10].
+- **<"key">**: key of the TXT record.
+- **<"value">**: value of the TXT record.
+- **[...]**: repeat the key-value pairs of TXT record according to the ``<txt_number>``.
+
+Example
+^^^^^^^^
+
+::
+
+    // Enable mDNS function. Set the hostname to "espressif", service type to "_iot", and port to 8080.
+    AT+MDNS=1,"espressif","_iot",8080  
+
+    // Disable mDNS function
+    AT+MDNS=0
+
+Detailed examples can be found in: :ref:`mDNS Example <example-mdns>`.
 
 .. _cmd-TCPOPT:
 

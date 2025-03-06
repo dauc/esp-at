@@ -19,8 +19,8 @@ jobs:
   build-template-esp32c3:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3.1.0
-    - uses: actions/setup-python@v4.3.0
+    - uses: actions/checkout@v4.2.0
+    - uses: actions/setup-python@v5.3.0
       with:
         python-version: '3.10'
     - name: Configure prerequisites
@@ -36,6 +36,14 @@ jobs:
           echo -e "CONFIG_AT_EAP_COMMAND_SUPPORT=y" >> module_config/module_esp32c3_default/sdkconfig.defaults
           echo -e "CONFIG_AT_WEB_SERVER_SUPPORT=y" >> module_config/module_esp32c3_default/sdkconfig.defaults
           echo -e "CONFIG_AT_WEB_CAPTIVE_PORTAL_ENABLE=y" >> module_config/module_esp32c3_default/sdkconfig.defaults
+
+          # enlarge partition table
+          app0_size=`cat module_config/module_esp32c3_default/partitions_at.csv | grep ota_0 | awk -F, '{print $5}'`
+          app1_size=`cat module_config/module_esp32c3_default/partitions_at.csv | grep ota_1 | awk -F, '{print $5}'`
+          to_set_size=$((app0_size + app1_size))
+          sed -i '/ota_1/d' module_config/module_esp32c3_default/partitions_at.csv
+          to_set_hex_size=`printf "0x%x" ${to_set_size}`
+          sed -i '/ota_0/s,'"$app0_size"','"$to_set_hex_size"',g' module_config/module_esp32c3_default/partitions_at.csv
         fi
 
         # update esp32c3 ota token
@@ -45,14 +53,15 @@ jobs:
         echo -e "#define CONFIG_ESP_AT_OTA_TOKEN_ESP32C3_MINI \"${{ secrets.AT_OTA_TOKEN_ESP32C3_MINI }}\"" >> at_ota_token.h
         echo -e "#define CONFIG_ESP_AT_OTA_SSL_TOKEN_ESP32C3_MINI \"${{ secrets.AT_OTA_TOKEN_ESP32C3_MINI }}\"" >> at_ota_token.h
         cd -
-    - name: Install ESP-IDF environment variables
+    - name: Install environment variables
       run: |
+        echo "ESP_AT_FIRMWARE_FROM=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" >> "$GITHUB_ENV"
         ./build.py install
     - name: Compile
       run: |
         ./build.py build
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3.1.1
+      uses: actions/upload-artifact@v4.4.3
       with:
         name: ${{ inputs.artifacts_name }}
         path: |

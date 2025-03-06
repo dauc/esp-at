@@ -208,7 +208,7 @@ Set Command
 
 ::
 
-    AT+GSLP=<time>  
+    AT+GSLP=<time>
 
 **Response:**
 
@@ -221,10 +221,17 @@ Set Command
 Parameter
 ^^^^^^^^^^
 
--  **<time>**: the duration when the device stays in Deep-sleep. Unit: millisecond. When the time is up, the device automatically wakes up, calls Deep-sleep wake stub, and then proceeds to load the application.
+-  **<time>**: The duration when the device stays in Deep-sleep. Unit: millisecond. When the time is up, the device automatically wakes up, calls Deep-sleep wake stub, and then proceeds to load the application.
 
-    - 0 means restarting right now
-    - the maximum Deep-sleep time is about 28.8 days (2 :sup:`31`-1 milliseconds)
+   .. only:: esp32c3 or esp32c2 or esp32 or esp32s2
+
+       - 0 means restarting right now
+
+   .. only:: esp32c6
+
+       - The minimum Deep-sleep time is 5 milliseconds
+
+    - The maximum Deep-sleep time is about 28.8 days (2 :sup:`31`-1 milliseconds)
 
 Notes
 ^^^^^^
@@ -294,9 +301,11 @@ Notes
 :ref:`AT+SAVETRANSLINK <TCPIP-AT>`: Set Whether to Enter Wi-Fi/Bluetooth LE :term:`Passthrough Mode` on Power-up
 ----------------------------------------------------------------------------------------------------------------
 
-* :ref:`savetrans-tcpssl`
-* :ref:`savetrans-udp`
-* :ref:`savetrans-ble`
+.. list::
+
+    * :ref:`savetrans-tcpssl`
+    * :ref:`savetrans-udp`
+    :esp32 or esp32c3 or esp32c6 or esp32c2: * :ref:`savetrans-ble`
 
 .. _savetrans-tcpssl:
 
@@ -406,56 +415,58 @@ Example
     AT+SAVETRANSLINK=1,"192.168.6.110",1002,"UDP",1005
     AT+SAVETRANSLINK=1,"240e:3a1:2070:11c0:55ce:4e19:9649:b75",8081,"UDPv6",1005
 
-.. _savetrans-ble:
+.. only:: esp32c2 or esp32c3 or esp32c6 or esp32
 
-For BLE Connection
-^^^^^^^^^^^^^^^^^^^^
+    .. _savetrans-ble:
 
-Set Command
-""""""""""""""
+    For BLE Connection
+    ^^^^^^^^^^^^^^^^^^^^
 
-**Command:**
+    Set Command
+    """"""""""""""
 
-::
+    **Command:**
 
-    AT+SAVETRANSLINK=<mode>,<role>,<tx_srv>,<tx_char>,<rx_srv>,<rx_char>,<peer_addr>
+    ::
 
-**Response:**
+        AT+SAVETRANSLINK=<mode>,<role>,<tx_srv>,<tx_char>,<rx_srv>,<rx_char>,<peer_addr>
 
-::
+    **Response:**
 
-    OK
+    ::
 
-Parameters
-""""""""""""""
+        OK
 
--  **<mode>**:
+    Parameters
+    """"""""""""""
 
-    -  0: {IDF_TARGET_NAME} will NOT enter BLE :term:`Passthrough Mode` on power-up.
-    -  2: {IDF_TARGET_NAME} will enter BLE :term:`Passthrough Mode` on power-up.
+    -  **<mode>**:
 
--  **<role>**:
+        -  0: {IDF_TARGET_NAME} will NOT enter BLE :term:`Passthrough Mode` on power-up.
+        -  2: {IDF_TARGET_NAME} will enter BLE :term:`Passthrough Mode` on power-up.
 
-    -  1: client role.
-    -  2: server role.
+    -  **<role>**:
 
--  **<tx_srv>**: tx service's index. It can be queried with command :ref:`AT+BLEGATTCPRIMSRV <cmd-GCPRIMSRV>`\=<conn_index> if AT works as GATTC role or with command :ref:`AT+BLEGATTSSRV? <cmd-GSSRV>` if AT works as GATTS role.
--  **<tx_char>**: tx characteristic's index. It can be queried with command :ref:`AT+BLEGATTCCHAR <cmd-GCCHAR>`\=<conn_index>,<srv_index> if AT works as GATTC role or with command :ref:`AT+BLEGATTSCHAR? <cmd-GSCHAR>` if AT works as GATTS role.
--  **<rx_srv>**: rx service's index. It can be queried with command :ref:`AT+BLEGATTCPRIMSRV <cmd-GCPRIMSRV>`\=<conn_index> if AT works as GATTC role or with command :ref:`AT+BLEGATTSSRV? <cmd-GSSRV>` if AT works as GATTS role.
--  **<rx_char>**: rx characteristic's index. It can be queried with command :ref:`AT+BLEGATTCCHAR <cmd-GCCHAR>`\=<conn_index>,<srv_index> if AT works as GATTC role or with command :ref:`AT+BLEGATTSCHAR? <cmd-GSCHAR>` if AT works as GATTS role.
--  **<peer_addr>**: remote Bluetooth LE address.
+        -  1: client role.
+        -  2: server role.
 
-Notes
-"""""""
+    -  **<tx_srv>**: tx service's index. It can be queried with command :ref:`AT+BLEGATTCPRIMSRV <cmd-GCPRIMSRV>`\=<conn_index> if AT works as GATTC role or with command :ref:`AT+BLEGATTSSRV? <cmd-GSSRV>` if AT works as GATTS role.
+    -  **<tx_char>**: tx characteristic's index. It can be queried with command :ref:`AT+BLEGATTCCHAR <cmd-GCCHAR>`\=<conn_index>,<srv_index> if AT works as GATTC role or with command :ref:`AT+BLEGATTSCHAR? <cmd-GSCHAR>` if AT works as GATTS role.
+    -  **<rx_srv>**: rx service's index. It can be queried with command :ref:`AT+BLEGATTCPRIMSRV <cmd-GCPRIMSRV>`\=<conn_index> if AT works as GATTC role or with command :ref:`AT+BLEGATTSSRV? <cmd-GSSRV>` if AT works as GATTS role.
+    -  **<rx_char>**: rx characteristic's index. It can be queried with command :ref:`AT+BLEGATTCCHAR <cmd-GCCHAR>`\=<conn_index>,<srv_index> if AT works as GATTC role or with command :ref:`AT+BLEGATTSCHAR? <cmd-GSCHAR>` if AT works as GATTS role.
+    -  **<peer_addr>**: remote Bluetooth LE address.
 
--  This command will save the BLE :term:`Passthrough Mode` configuration in the NVS area. If ``<mode>`` is set to 2, {IDF_TARGET_NAME} will enter the Bluetooth LE :term:`Passthrough Mode` in the next power on. The configuration will take effect after {IDF_TARGET_NAME} reboots.
+    Notes
+    """""""
 
-Example
-"""""""""
+    -  This command will save the BLE :term:`Passthrough Mode` configuration in the NVS area. If ``<mode>`` is set to 2, {IDF_TARGET_NAME} will enter the Bluetooth LE :term:`Passthrough Mode` in the next power on. The configuration will take effect after {IDF_TARGET_NAME} reboots.
 
-::
+    Example
+    """""""""
 
-    AT+SAVETRANSLINK=2,2,1,7,1,5,"26:a2:11:22:33:88"
+    ::
+
+        AT+SAVETRANSLINK=2,2,1,7,1,5,"26:a2:11:22:33:88"
 
 .. _cmd-TRANSINTVL:
 
@@ -1539,14 +1550,14 @@ Query the RF TX Power.
 
 **Response:**
 
-.. only:: esp32 or esp32c3
+.. only:: esp32 or esp32c3 or esp32c6
 
   ::
 
     +RFPOWER:<wifi_power>,<ble_adv_power>,<ble_scan_power>,<ble_conn_power>
     OK
 
-.. only:: esp32c2
+.. only:: esp32c2 or esp32s2
 
   ::
 
@@ -1558,13 +1569,13 @@ Set Command
 
 **Command:**
 
-.. only:: esp32 or esp32c3
+.. only:: esp32 or esp32c3 or esp32c6
 
   ::
 
     AT+RFPOWER=<wifi_power>[,<ble_adv_power>,<ble_scan_power>,<ble_conn_power>]
 
-.. only:: esp32c2
+.. only:: esp32c2 or esp32s2
 
   ::
 
@@ -1609,6 +1620,17 @@ Parameters
       [81,84]   <set value>  80           20
       ========= ============ ============ ==========
 
+  .. only:: esp32s2
+
+    - For {IDF_TARGET_NAME} devices, the range is [40,84]:
+
+      ========= ============ ============ ==========
+      set value   get value  actual value actual dBm
+      ========= ============ ============ ==========
+      [40,78]   <set value>  <set value>  <set value> * 0.25
+      [79,84]   <set value>  78           19.5
+      ========= ============ ============ ==========
+
 .. only:: esp32
 
   -  **<ble_adv_power>**: RF TX Power of Bluetooth LE advertising. Range: [0,7].
@@ -1624,26 +1646,44 @@ Parameters
 
 .. only:: esp32c3
 
-  -  **<ble_adv_power>**: RF TX Power of Bluetooth LE advertising. Range: [0,7].
+  -  **<ble_adv_power>**: RF TX Power of Bluetooth LE advertising. Range: [0,15].
 
-    -  0: -27 dBm
-    -  1: -24 dBm
-    -  2: -21 dBm
-    -  3: -18 dBm
-    -  4: -15 dBm
-    -  5: -12 dBm
-    -  6: -9 dBm
-    -  7: -6 dBm
-    -  8: -3 dBm
-    -  9: -0 dBm
-    -  10: 3 dBm
-    -  11: 6 dBm
-    -  12: 9 dBm
-    -  13: 12 dBm
-    -  14: 15 dBm
-    -  15: 18 dBm
+    -  0: -24 dBm
+    -  1: -21 dBm
+    -  2: -18 dBm
+    -  3: -15 dBm
+    -  4: -12 dBm
+    -  5: -9 dBm
+    -  6: -6 dBm
+    -  7: -3 dBm
+    -  8: -0 dBm
+    -  9: 3 dBm
+    -  10: 6 dBm
+    -  11: 9 dBm
+    -  12: 12 dBm
+    -  13: 15 dBm
+    -  14: 18 dBm
+    -  15: 21 dBm
 
-.. only:: esp32 or esp32c3
+.. only:: esp32c6
+
+  -  **<ble_adv_power>**: RF TX Power of Bluetooth LE advertising. Range: [3,15].
+
+    -  3: -15 dBm
+    -  4: -12 dBm
+    -  5: -9 dBm
+    -  6: -6 dBm
+    -  7: -3 dBm
+    -  8: -0 dBm
+    -  9: 3 dBm
+    -  10: 6 dBm
+    -  11: 9 dBm
+    -  12: 12 dBm
+    -  13: 15 dBm
+    -  14: 18 dBm
+    -  15: 20 dBm
+
+.. only:: esp32 or esp32c3 or esp32c6
 
   -  **<ble_scan_power>**: RF TX Power of Bluetooth LE scanning. The parameters are the same as ``<ble_adv_power>``.
   -  **<ble_conn_power>**: RF TX Power of Bluetooth LE connecting. The same as ``<ble_adv_power>``.

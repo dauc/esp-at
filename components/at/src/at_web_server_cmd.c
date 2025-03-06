@@ -1,27 +1,8 @@
 /*
- * ESPRESSIF MIT License
+ * SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
  *
- * Copyright (c) 2021 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
- *
- * Permission is hereby granted for use on ESPRESSIF SYSTEMS only, in which case,
- * it is free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
- * to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or
- * substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- *
+ * SPDX-License-Identifier: Apache-2.0
  */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,6 +58,7 @@ static char *s_at_web_redirect_url = NULL;
         }                                                                              \
     } while (0)
 
+#define ESP_AT_WEB_VERSION                             "1.0"
 #define ESP_AT_WEB_FILE_PATH_MAX                       (ESP_VFS_PATH_MAX + 128)
 #define ESP_AT_WEB_SCRATCH_BUFSIZE                     320
 #define ESP_AT_WEB_WIFI_MAX_RECONNECT_TIMEOUT          60     // 60sec
@@ -166,7 +148,7 @@ static const char *s_ota_start_response = "+WEBSERVERRSP:3\r\n";
 static const char *s_ota_receive_success_response = "+WEBSERVERRSP:4\r\n";
 static const char *s_ota_receive_fail_response = "+WEBSERVERRSP:5\r\n";
 static SLIST_HEAD(router_fail_list_head_, router_obj) s_router_fail_list = SLIST_HEAD_INITIALIZER(s_router_fail_list);
-static const char *TAG = "at web";
+static const char *TAG = "at-web";
 
 // AT web can use fatfs to storge html or use embeded file to storge html.
 // If use fatfs,we should enable AT FS Command support.
@@ -199,7 +181,7 @@ static uint8_t at_web_get_mac_match_len(uint8_t *mac1, uint8_t *mac2, uint8_t ma
  * @param[in] password - password used for Wi-Fi connect config
  * @param[in] bssid - bssid used for Wi-Fi connect config, can be null.
  * @param[in] connect_event - the handler of wifi connect status eventgroup, used to feedback try connect result.
- * 
+ *
  * @return
  * - ESP_OK : success
  * - Others : fail
@@ -231,13 +213,13 @@ static esp_err_t at_web_try_connect(uint8_t *ssid, uint8_t *password, uint8_t *b
     at_wifi_reconnect_init(true);
     // apply connect
     at_wifi_connect();
-    
+
     if (connect_event != NULL) { // need to wait wifi connect result, now it's phone config wifi and ssid is null
         bits = xEventGroupWaitBits(connect_event,
-            ESP_AT_WEB_WIFI_CONNECTED_BIT | ESP_AT_WEB_WIFI_FAIL_BIT,
-            pdTRUE,
-            pdFALSE,
-            ESP_AT_WEB_WIFI_TRY_CONNECT_TIMEOUT / portTICK_PERIOD_MS); // wait until timeout
+                                   ESP_AT_WEB_WIFI_CONNECTED_BIT | ESP_AT_WEB_WIFI_FAIL_BIT,
+                                   pdTRUE,
+                                   pdFALSE,
+                                   ESP_AT_WEB_WIFI_TRY_CONNECT_TIMEOUT / portTICK_PERIOD_MS); // wait until timeout
 
         if (bits & ESP_AT_WEB_WIFI_CONNECTED_BIT) {
             ESP_LOGI(TAG, "connected to ap SSID:%s", temp_ssid);
@@ -252,18 +234,18 @@ static esp_err_t at_web_try_connect(uint8_t *ssid, uint8_t *password, uint8_t *b
             ret = ESP_ERR_INVALID_STATE;
         }
     } else { // don't need to wait wifi connect result
-        printf("connect config finish\r\n");
+        ESP_LOGI(TAG, "connect config finish");
     }
     return ret;
 }
 
 /**
  * @brief Get mobile phone's mac connecting to the ESP AP
- * 
+ *
  * @note If there is more than one station connecting to the ESP AP, the function will return the last station's mac.
  *
  * @param[out] mobile_phone_mac
- * 
+ *
  * @return
  *    - ESP_OK
  *    - ESP_FAIL
@@ -323,7 +305,7 @@ static void insert_fail_list(router_obj_t *item)
     if (item == NULL) {
         return;
     }
-    
+
     SLIST_INSERT_HEAD(&s_router_fail_list, item, next);
 }
 
@@ -344,14 +326,14 @@ static void ap_record_sort_by_rssi(wifi_ap_record_t *ap_record_array, int len)
         }
         if (flag == 1) {
             break;
-        }  
+        }
     }
 }
 
 /**
   * @brief Start one scan, and get AP list found in the scan.
   *
-  * @param[in,out] number As input param, it stores max AP number ap_records can hold. 
+  * @param[in,out] number As input param, it stores max AP number ap_records can hold.
   *                As output param, it receives the actual AP number this API returns.
   * @param[out]    ap_records  wifi_ap_record_t array to hold the found APs
   *
@@ -385,7 +367,7 @@ esp_err_t at_web_wifi_scan_get_ap_records(uint16_t *number, wifi_ap_record_t *ap
         return ESP_FAIL;
     }
     ESP_LOGI(TAG, "Total APs scanned = %u", *number);
-    // sort ap_record according to rssi 
+    // sort ap_record according to rssi
     ap_record_sort_by_rssi(ap_records, *number);
     return ESP_OK;
 }
@@ -426,7 +408,7 @@ check_err:
  * @param[in] password - web server received Wi-Fi connect password.
  * @param[in] max_connect_time - the Max connection time allowed to attempt(include scan delay and try connect time, unit: s).
  * @param[in] connect_event - the handler of wifi connect status eventgroup, used to feedback try connect result.
- * 
+ *
  * @return
  *    - ESP_OK
  *    - ESP_ERR_INVALID_ARG
@@ -615,8 +597,8 @@ static esp_err_t at_web_start_scan_filter(uint8_t *phone_mac, uint8_t *password,
             ESP_LOGI(TAG, "scan and try connect use time is %d", (int32_t)((end - start) / 1000));
             current_available_time -= ((end - start) / 1000);
         } else if (end < start) {
-            ESP_LOGI(TAG, "scan and try connect use time is %d", (int32_t)((end + 0xFFFFFFFFUL - start)/ 1000));
-            current_available_time -= ((end + 0xFFFFFFFFUL - start)/ 1000);
+            ESP_LOGI(TAG, "scan and try connect use time is %d", (int32_t)((end + 0xFFFFFFFFUL - start) / 1000));
+            current_available_time -= ((end + 0xFFFFFFFFUL - start) / 1000);
         } else {
             ESP_LOGE(TAG, "time interval fatal error");
             break;
@@ -708,7 +690,7 @@ static esp_err_t web_common_get_handler(httpd_req_t *req)
     web_server_context_t *s_web_context = (web_server_context_t*) req->user_ctx;
     strlcpy(filepath, s_web_context->base_path, sizeof(filepath));
     strlcat(filepath, "/index.html", sizeof(filepath)); // Now, we just send the index html for the common handler
-    
+
     ESP_LOGW(TAG, "open file : %s", filepath);
     int fd = open(filepath, O_RDONLY);
     if (fd == -1) {
@@ -802,7 +784,7 @@ static void at_web_response_ok(httpd_req_t *req)
     const char *temp_str = "{\"state\": 0}";
     httpd_resp_set_type(req, HTTPD_TYPE_JSON);
     httpd_resp_set_status(req, HTTPD_200);
-    
+
     httpd_resp_send(req, temp_str, strlen(temp_str));
 }
 
@@ -811,7 +793,7 @@ static void at_web_response_error(httpd_req_t *req, const char *status)
     const char *temp_str = "{\"state\": 1}";
     httpd_resp_set_type(req, HTTPD_TYPE_JSON);
     httpd_resp_set_status(req, status);
-    
+
     httpd_resp_send(req, temp_str, strlen(temp_str));
 }
 
@@ -891,6 +873,7 @@ static void listen_sta_connect_status_timer_cb(TimerHandle_t timer)
     } else {
         ESP_LOGW(TAG, "Listen connect %d times and connect fail", connect_count);
         connection_info.config_status = ESP_AT_WIFI_STA_CONNECT_FAIL;
+        at_wifi_reconnect_stop();
         goto connect_finish;
     }
     return;
@@ -899,7 +882,6 @@ connect_finish:
     connect_count = 1;
     at_web_update_sta_got_ip_flag(false);
     at_web_update_sta_connection_info(&connection_info);
-    at_wifi_reconnect_stop();
     xTimerStop(s_wifi_sta_connect_timer_handler, portMAX_DELAY);
     xTimerDelete(s_wifi_sta_connect_timer_handler, portMAX_DELAY);
 }
@@ -955,7 +937,7 @@ static int readable_check(int fd, int sec, int usec)
     tv.tv_sec = sec;
     tv.tv_usec = usec;
     /* > 0 if descriptor is readable */
-    return(select(fd + 1, &rset, NULL, NULL, &tv));
+    return (select(fd + 1, &rset, NULL, NULL, &tv));
 }
 
 static void listen_sta_connect_success_timer_cb(TimerHandle_t timer)
@@ -1023,7 +1005,7 @@ static esp_err_t at_web_apply_wifi_connect_info(int32_t udp_port)
         }
 
         s_wifi_sta_connect_timer_handler = xTimerCreate("listen_sta_connect_status", ESP_AT_WEB_TIMER_POLLING_PERIOD / portTICK_PERIOD_MS, pdTRUE,
-            NULL, listen_sta_connect_status_timer_cb);
+                                                        NULL, listen_sta_connect_status_timer_cb);
         xTimerStart(s_wifi_sta_connect_timer_handler, 5);
     } else {
         // if have connect to a ap, then disconnect
@@ -1033,7 +1015,7 @@ static esp_err_t at_web_apply_wifi_connect_info(int32_t udp_port)
         s_wifi_sta_connect_event_group = xEventGroupCreate();
 
         s_wifi_sta_connect_timer_handler = xTimerCreate("listen_sta_connect_success", ESP_AT_WEB_TIMER_POLLING_PERIOD / portTICK_PERIOD_MS, pdTRUE,
-            NULL, listen_sta_connect_success_timer_cb);
+                                                        NULL, listen_sta_connect_success_timer_cb);
         xTimerStart(s_wifi_sta_connect_timer_handler, 5);
         connection_info.config_status = ESP_AT_WIFI_STA_CONNECTING;
         at_web_update_sta_connection_info(&connection_info);
@@ -1078,7 +1060,7 @@ static esp_err_t at_web_apply_wifi_connect_info(int32_t udp_port)
 
             sprintf(connection_info.sta_ip, IPSTR, IP2STR(&sta_ip.ip));
             sprintf(gateway, IPSTR, IP2STR(&sta_ip.gw));
-            
+
             sprintf(sendline, "ip=%d.%d.%d.%d&port=%d", IP2STR(&sta_ip.ip), ESP_AT_WEB_UDP_PORT_DEFAULT);
             ESP_LOGD(TAG, "udp send str is %s", sendline);
 
@@ -1191,7 +1173,7 @@ static esp_err_t at_get_wifi_info_from_json_str(char *buffer, wifi_sta_connect_c
 
 static esp_err_t config_wifi_post_handler(httpd_req_t *req)
 {
-    char *buf = ((web_server_context_t*) (req->user_ctx))->scratch;
+    char *buf = ((web_server_context_t*)(req->user_ctx))->scratch;
     wifi_sta_connect_config_t wifi_config = {0};
     int str_len = 0;
     int32_t udp_port = -1;
@@ -1202,13 +1184,13 @@ static esp_err_t config_wifi_post_handler(httpd_req_t *req)
     memset(buf, '\0', ESP_AT_WEB_SCRATCH_BUFSIZE * sizeof(char));
     esp_wifi_get_mode(&current_wifi_mode);
     if (current_wifi_mode != WIFI_MODE_APSTA) {
-        printf("Error, wifi mode is not correct\r\n");
+        ESP_LOGE(TAG, "invalid wifi mode");
         goto error_handle;
     }
     // only wifi config not start or have success apply one connection,allow to apply new connect
     if ((connection_info->config_status == ESP_AT_WIFI_STA_NOT_START) ||
-        (connection_info->config_status == ESP_AT_WIFI_STA_CONNECT_FAIL) ||
-        (connection_info->config_status == ESP_AT_WIFI_STA_CONNECT_OK)) {
+            (connection_info->config_status == ESP_AT_WIFI_STA_CONNECT_FAIL) ||
+            (connection_info->config_status == ESP_AT_WIFI_STA_CONNECT_OK)) {
         if (recv_post_data(req, buf) != ESP_OK) {
             at_web_response_error(req, HTTPD_500);
             ESP_LOGE(TAG, "recv post data error");
@@ -1220,13 +1202,13 @@ static esp_err_t config_wifi_post_handler(httpd_req_t *req)
             goto error_handle;
         }
         ESP_LOGD(TAG, "ssid(%d):%s password:(%d):%s\r\n",
-            strlen((char *)wifi_config.ssid), wifi_config.ssid, strlen((char *)wifi_config.password), wifi_config.password);
+                 strlen((char *)wifi_config.ssid), wifi_config.ssid, strlen((char *)wifi_config.password), wifi_config.password);
 
         // check the validity of ssid and password
         if (strlen((char *)&wifi_config.ssid) == 0) {
             ssid_is_null = true;
         }
-        if ((ssid_is_null == true) && (strlen((char*)&wifi_config.password) == 0)) {
+        if ((ssid_is_null == true) && (strlen((char *)&wifi_config.password) == 0)) {
             ESP_LOGE(TAG, "Error, ssid and password all is null");
             goto error_handle;
         }
@@ -1246,7 +1228,7 @@ static esp_err_t config_wifi_post_handler(httpd_req_t *req)
         at_web_update_sta_connect_config(&wifi_config);
 
         at_web_response_ok(req);
-        vTaskDelay(300/portTICK_PERIOD_MS); // to avoid wifi ap channel changed so quickly that the response can not be sent.
+        vTaskDelay(300 / portTICK_PERIOD_MS); // to avoid wifi ap channel changed so quickly that the response can not be sent.
         // begin connect
         if (ssid_is_null != true) {
             if (at_web_apply_wifi_connect_info(udp_port) != ESP_OK) {
@@ -1277,7 +1259,7 @@ static esp_err_t config_wifi_get_handler(httpd_req_t *req)
     wifi_sta_connection_info_t *connection_info = at_web_get_sta_connection_info();
     char temp_str[32] = {0};
     int32_t json_len = 0;
-    char *temp_json_str = ((web_server_context_t*) (req->user_ctx))->scratch;
+    char *temp_json_str = ((web_server_context_t*)(req->user_ctx))->scratch;
 
     httpd_resp_set_type(req, "application/json");
 
@@ -1343,9 +1325,21 @@ static esp_err_t config_wifi_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t at_web_version_get_handler(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "application/json");
+    char *temp_json_str = ((web_server_context_t*)(req->user_ctx))->scratch;
+    sprintf(temp_json_str, "{\"version\":\"%s\"}", ESP_AT_WEB_VERSION);
+    ESP_LOGD(TAG, "ready to send version: %s\n", temp_json_str);
+
+    httpd_resp_send(req, temp_json_str, (temp_json_str == NULL) ? 0 : strlen(temp_json_str));
+
+    return ESP_OK;
+}
+
 static esp_err_t accept_wifi_result_post_handler(httpd_req_t *req)
 {
-    char *buf = ((web_server_context_t*) (req->user_ctx))->scratch;
+    char *buf = ((web_server_context_t*)(req->user_ctx))->scratch;
     int32_t received_flag;
     char temp[4] = {0};
     int str_len = 0;
@@ -1411,7 +1405,7 @@ static esp_err_t ap_record_get_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
     memset(ap_info, 0, ESP_AT_WEB_AP_SCAN_NUM_DEFAULT * sizeof(wifi_ap_record_t));
-    
+
     if (at_web_wifi_scan_get_ap_records(&ap_number, ap_info) != ESP_OK) {
         at_web_response_error(req, HTTPD_500);
         goto error_handle;
@@ -1472,7 +1466,7 @@ const esp_partition_t *at_web_get_ota_update_partition(void)
     }
     ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
              running->type, running->subtype, running->address);
-    
+
     update_partition = esp_ota_get_next_update_partition(running);
     ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
              update_partition->subtype, update_partition->address);
@@ -1506,7 +1500,7 @@ esp_err_t at_web_ota_end(esp_ota_handle_t handle, const esp_partition_t *partiti
 
 static esp_err_t ota_upgrade(httpd_req_t *req)
 {
-    char *buf = ((web_server_context_t*) (req->user_ctx))->scratch;
+    char *buf = ((web_server_context_t*)(req->user_ctx))->scratch;
     int total_len = req->content_len;
     int remaining_len = req->content_len;
     int received_len = 0;
@@ -1538,7 +1532,7 @@ static esp_err_t ota_upgrade(httpd_req_t *req)
             ESP_LOGE(TAG, "Failed to receive post ota data, err = %d", received_len);
             esp_ota_end(update_handle);
             goto err_handler;
-        }else { // received successfully
+        } else { // received successfully
             err = esp_ota_write(update_handle, buf, received_len);
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "ota write failed (%s)", esp_err_to_name(err));
@@ -1620,7 +1614,7 @@ static esp_err_t partition_upgrade(httpd_req_t *req, char *buf, const int total_
 static esp_err_t at_customize_partition_upgrade(httpd_req_t *req, const char* partition_name)
 {
     esp_err_t err = ESP_OK;
-    char *buf = ((web_server_context_t*) (req->user_ctx))->scratch;
+    char *buf = ((web_server_context_t*)(req->user_ctx))->scratch;
     int total_len = req->content_len;
 
     err = partition_upgrade(req, buf, total_len, partition_name);
@@ -1644,7 +1638,7 @@ static esp_err_t ota_info_get_handler(httpd_req_t *req)
     uint32_t version_uint32 =  esp_at_get_version();
     int32_t json_len = 0;
     uint8_t version[4] = {0};
-    char *temp_json_str = ((web_server_context_t*) (req->user_ctx))->scratch;
+    char *temp_json_str = ((web_server_context_t*)(req->user_ctx))->scratch;
     esp_partition_t *cur_partition = NULL;
 
     memcpy(version, &version_uint32, sizeof(version_uint32));
@@ -1656,7 +1650,7 @@ static esp_err_t ota_info_get_handler(httpd_req_t *req)
 
     // OTA information
     json_len += sprintf(temp_json_str + json_len, "\"state\":0,"); // it means http context OK
-    json_len += sprintf(temp_json_str + json_len, "\"fw_version\":\"%s\",", CONFIG_ESP_AT_FW_VERSION); // it means http context OK
+    json_len += sprintf(temp_json_str + json_len, "\"fw_version\":\"%s\",", CONFIG_APP_PROJECT_VER); // it means http context OK
     json_len += sprintf(temp_json_str + json_len, "\"at_core_version\":\"%d.%d.%d.%d\",", version[3], version[2], version[1], version[0]);
 
     // partition information array start
@@ -1731,7 +1725,7 @@ static esp_err_t ota_data_post_handler(httpd_req_t *req)
 /* http 404/414 error handler that redirect all requests to the root page */
 static esp_err_t http_common_error_handler(httpd_req_t *req, httpd_err_code_t err)
 {
-     /* Set status */
+    /* Set status */
     httpd_resp_set_status(req, "302 Temporary Redirect");
 
     /* Redirect to the "/" root directory */
@@ -1769,13 +1763,14 @@ static esp_err_t start_web_server(const char *base_path, uint16_t server_port)
     ESP_AT_WEB_SERVER_CHECK(httpd_start(&s_server, &config) == ESP_OK, "Start server failed", err_start);
 
     httpd_uri_t httpd_uri_array[] = {
+        {"/getversion", HTTP_GET, at_web_version_get_handler, s_web_context},
         {"/getstainfo", HTTP_GET, config_wifi_get_handler, s_web_context},
         {"/setstainfo", HTTP_POST, config_wifi_post_handler, s_web_context},
         {"/getresult", HTTP_POST, accept_wifi_result_post_handler, s_web_context},
         {"/getaprecord", HTTP_GET, ap_record_get_handler, s_web_context},
         {"/getotainfo", HTTP_GET, ota_info_get_handler, s_web_context},
         {"/setotadata", HTTP_POST, ota_data_post_handler, s_web_context},
-        {"/", HTTP_GET, web_common_get_handler,s_web_context},
+        {"/", HTTP_GET, web_common_get_handler, s_web_context},
     };
 
     for (int i = 0; i < sizeof(httpd_uri_array) / sizeof(httpd_uri_t); i++) {
@@ -1790,7 +1785,7 @@ static esp_err_t start_web_server(const char *base_path, uint16_t server_port)
     esp_netif_ip_info_t ip_info;
     esp_netif_get_ip_info(esp_netif_get_handle_from_ifkey("WIFI_AP_DEF"), &ip_info);
     snprintf(s_at_web_redirect_url, redirect_url_sz, "http://"IPSTR"%s", IP2STR(&ip_info.ip), ESP_AT_WEB_ROOT_DIR_DEFAULT);
-    
+
     httpd_register_err_handler(s_server, HTTPD_404_NOT_FOUND, http_common_error_handler);
     httpd_register_err_handler(s_server, HTTPD_414_URI_TOO_LONG, http_common_error_handler);
     httpd_register_err_handler(s_server, HTTPD_405_METHOD_NOT_ALLOWED, http_common_error_handler);
@@ -1822,7 +1817,7 @@ err:
     return ESP_FAIL;
 }
 
-#ifdef CONFIG_AT_WEB_USE_FATFS 
+#ifdef CONFIG_AT_WEB_USE_FATFS
 static esp_err_t at_web_fatfs_spiflash_mount(const char *base_path,
     const char *partition_label,
     const esp_vfs_fat_mount_config_t *mount_config,
@@ -1893,11 +1888,11 @@ static esp_err_t at_web_fatfs_spiflash_init(void)
     esp_err_t err = at_web_fatfs_spiflash_mount(ESP_AT_WEB_MOUNT_POINT, "fatfs", &mount_config, &s_wl_handle);
 
     if (err != ESP_OK) {
-        printf("Failed to mount FATFS (0x%x)", err);
+        ESP_LOGE(TAG, "failed to mount fatfs, errno:0x%x", err);
         return ESP_FAIL;
     }
 
-    printf("Mount FATFS success\n");
+    ESP_LOGI(TAG ("mount fatfs success");
     return ESP_OK;
 }
 
@@ -1951,7 +1946,7 @@ static esp_err_t at_web_destory(void)
 #ifdef CONFIG_AT_WEB_CAPTIVE_PORTAL_ENABLE
         at_dns_server_stop();
 #endif
-#ifdef CONFIG_AT_WEB_USE_FATFS 
+#ifdef CONFIG_AT_WEB_USE_FATFS
         if ((err = at_web_fatfs_spiflash_deinit()) != ESP_OK) {
             return err;
         }
@@ -1980,11 +1975,11 @@ static uint8_t at_setupCmdWebConf(uint8_t para_num)
     }
 
     if ((para_num == cnt) && (enable == 0)) {
-        printf("Delete Web Server\r\n");
+        ESP_LOGI(TAG, "delete web server");
         if ((ret = at_web_destory()) == ESP_OK) {
             return ESP_AT_RESULT_CODE_OK;
         } else {
-            printf("at web destroy fail, err = %d\r\n", ret);
+            ESP_LOGE(TAG, "at_web_destory failed, err = %d", ret);
             return ESP_AT_RESULT_CODE_FAIL;
         }
     }
@@ -2010,10 +2005,10 @@ static uint8_t at_setupCmdWebConf(uint8_t para_num)
 
     if ((ret = at_web_start(port)) == ESP_OK) {
         at_web_update_sta_reconnect_timeout(reconnect_timeout);
-        printf("start web server\r\n");
+        ESP_LOGI(TAG, "web server started");
         return ESP_AT_RESULT_CODE_OK;
     } else {
-        printf("at web start fail, err = %d\r\n", ret);
+        ESP_LOGE(TAG, "at web start failed, err = %d", ret);
         return ESP_AT_RESULT_CODE_FAIL;
     }
 }
@@ -2032,4 +2027,7 @@ bool esp_at_web_server_cmd_regist(void)
     esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &at_web_got_ip_cb, NULL, NULL);
     return esp_at_custom_cmd_array_regist(at_web_cmd, sizeof(at_web_cmd) / sizeof(at_web_cmd[0]));
 }
+
+ESP_AT_CMD_SET_FIRST_INIT_FN(esp_at_web_server_cmd_regist, 25);
+
 #endif

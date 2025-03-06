@@ -79,7 +79,7 @@ Users could choose one of the following methods to improve throughput performanc
       CONFIG_ESP32_WIFI_AMPDU_TX_ENABLED=y
       CONFIG_ESP32_WIFI_AMPDU_RX_ENABLED=y
 
-  .. only:: esp32c3
+  .. only:: esp32c3 or esp32s2
 
     ::
 
@@ -163,6 +163,7 @@ Users could choose one of the following methods to improve throughput performanc
     AT+CWJAP="ssid","password"
     AT+UART_CUR=3000000,8,1,0,3
     AT+CIPSTART="TCP","192.168.105.13",3344
+    AT+CIPMODE=1
     AT+CIPSEND
     // data transmission
 
@@ -267,6 +268,7 @@ The data stream of throughput is similar to water flow. In order to improve thro
     AT+CWJAP="ssid","password"
     AT+UART_CUR=3000000,8,1,0,3
     AT+CIPSTART="TCP","192.168.105.13",3344
+    AT+CIPMODE=1
     AT+CIPSEND
     // data transmission
 
@@ -277,9 +279,9 @@ The data stream of throughput is similar to water flow. In order to improve thro
 
     If the user expects the throughput rate to be greater than or close to 5 Mbps, then SPI, SDIO, Socket or other methods can be considered. Please refer to:
 
-    .. only:: esp32
+    .. only:: esp32 or esp32c6
 
-      - SDIO: :doc:`SDIO AT Guide </Compile_and_Develop/esp32-sdio-at-guide>`
+      - SDIO: :doc:`SDIO AT Guide </Compile_and_Develop/How_to_implement_SDIO_AT>`
       - Socket: :project_file:`Socket AT Guide <main/interface/socket/README.md>`
 
     .. only:: esp32c2 or esp32c3 or esp32c6

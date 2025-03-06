@@ -9,7 +9,7 @@ choice AT_COMMUNICATION_METHOD
     depends on AT_ENABLE
 
 rsource "interface/uart/Kconfig"
-rsource "interface/hspi/Kconfig"
+rsource "interface/spi/Kconfig"
 rsource "interface/socket/Kconfig"
 rsource "interface/sdio/Kconfig"
 
@@ -38,6 +38,11 @@ config AT_COMMAND_TERMINATOR
     depends on AT_COMMAND_TERMINATOR_SUPPORT
     help
         Now just support one character, the range is from 0x01 to 0xFF.
+
+config AT_SELF_COMMAND_SUPPORT
+    bool "Support for executing AT commands from esp-at itself instead of external MCU."
+    default n
+    depends on AT_ENABLE
 
 config AT_BASE_COMMAND_SUPPORT
     bool "AT base command support."
@@ -120,7 +125,7 @@ config AT_MQTT_COMMAND_SUPPORT
 
 menu "AT MQTT authentication method"
     depends on AT_MQTT_COMMAND_SUPPORT
-    
+
 config AT_MQTT_BROKER_AUTH_CLIENT
     bool "Broker authenticates clients, mqtt_ca partition MUST exist in at_customize.csv"
     default y
@@ -131,17 +136,55 @@ config AT_MQTT_CLIENT_AUTH_BROKER
 endmenu
 
 config AT_HTTP_COMMAND_SUPPORT
-    bool "AT http command support."
+    bool "AT HTTP command support."
     default "n"
     depends on AT_ENABLE
     help
         Please enlarge AT_PROCESS_TASK_STACK_SIZE to be more than 4096 if HTTPS link need to establish,
         otherwise, unexpected crash probably occur due to AT process task overflow.
 
+menu "AT HTTP authentication method"
+    depends on AT_HTTP_COMMAND_SUPPORT
+
+config AT_HTTPS_SERVER_AUTH_CLIENT
+    bool "HTTPS server authenticates clients"
+    default n
+
+config AT_HTTPS_CLIENT_AUTH_SERVER
+    bool "HTTPS client authenticates server"
+    default n
+endmenu
+
+config AT_HTTP_TX_BUFFER_SIZE
+    int "Default HTTP TX buffer size"
+    default 2048
+    depends on AT_HTTP_COMMAND_SUPPORT
+    help
+        This buffer size using for transmit HTTP request
+
+config AT_HTTP_RX_BUFFER_SIZE
+    int "Default HTTP RX buffer size"
+    default 2048
+    depends on AT_HTTP_COMMAND_SUPPORT
+    help
+        This buffer size using for receive HTTP response
+
 config AT_WS_COMMAND_SUPPORT
     bool "AT WebSocket command support."
     default "n"
     depends on AT_ENABLE
+
+menu "AT WebSocket authentication method"
+    depends on AT_WS_COMMAND_SUPPORT
+
+config AT_WSS_SERVER_AUTH_CLIENT
+    bool "Server authenticates clients"
+    default y
+
+config AT_WSS_CLIENT_AUTH_SERVER
+    bool "Client authenticates server"
+    default y
+endmenu
 
 config AT_BLE_COMMAND_SUPPORT
     bool "AT ble command support."
@@ -205,7 +248,7 @@ config AT_ETHERNET_SUPPORT
     depends on AT_ENABLE && IDF_TARGET_ESP32
     help
         Please pay attention to the usage. You can refer to the ESP32_AT_Ethernet.md and get more details.
-    
+
 choice PHY_MODEL
     prompt "Ethernet PHY"
     default PHY_IP101
@@ -261,7 +304,7 @@ config AT_WEB_SERVER_SUPPORT
     depends on AT_ENABLE
     help
       Please enable this configure if you want use web server.
- 
+
 config AT_WEB_USE_FATFS
     bool "Use fatfs to store html"
     default "n"
@@ -274,8 +317,8 @@ config AT_WEB_CAPTIVE_PORTAL_ENABLE
     default "n"
     depends on AT_WEB_SERVER_SUPPORT
     help
-        If your mobile phone or PC supports captive portal, 
-        it will automatically open a browser for setting Wi-Fi station information when connects to ESP softAP. 
+        If your mobile phone or PC supports captive portal,
+        it will automatically open a browser for setting Wi-Fi station information when connects to ESP softAP.
         For more details, please refer to https://en.wikipedia.org/wiki/Captive_portal.
         Please enlarge LWIP_MAX_SOCKETS to be more than 14 to ensure access to the web smoothly.
 
@@ -327,16 +370,147 @@ config AT_OTA_SSL_TOKEN_KEY
     default "dd93253c287f725de50d4071a05dd28b72056ca7"
     depends on AT_OTA_SSL_SUPPORT
 
-config ESP_AT_FW_VERSION
-    string "AT firmware version."
-    depends on AT_ENABLE
-    help
-      The maximum length of the string is 128 characters.
-      If more than 128 characters, it will be invalid.
-
 config AT_RAINMAKER_COMMAND_SUPPORT
     bool "AT RAINMAKER command support."
     default n
     depends on AT_ENABLE
     depends on IDF_TARGET_ESP32C3
+
+menu "AT Log Level"
+
+    choice AT_LOG_DEFAULT_LEVEL
+        bool "Default AT log verbosity"
+        default AT_LOG_DEFAULT_LEVEL_VERBOSE
+        help
+            Specify how much output to see in AT logs by default.
+
+            By default, this setting limits which log statements
+            are compiled into the program. For example, selecting
+            "Warning" would mean that changing log level to "Debug"
+            at runtime will not be possible. To allow increasing log
+            level above the default at runtime, see the next option.
+
+        config AT_LOG_DEFAULT_LEVEL_NONE
+            bool "No output"
+        config AT_LOG_DEFAULT_LEVEL_ERROR
+            bool "Error"
+        config AT_LOG_DEFAULT_LEVEL_WARN
+            bool "Warning"
+        config AT_LOG_DEFAULT_LEVEL_INFO
+            bool "Info"
+        config AT_LOG_DEFAULT_LEVEL_DEBUG
+            bool "Debug"
+        config AT_LOG_DEFAULT_LEVEL_VERBOSE
+            bool "Verbose"
+    endchoice
+
+    config AT_LOG_DEFAULT_LEVEL
+        int
+        default 0 if AT_LOG_DEFAULT_LEVEL_NONE
+        default 1 if AT_LOG_DEFAULT_LEVEL_ERROR
+        default 2 if AT_LOG_DEFAULT_LEVEL_WARN
+        default 3 if AT_LOG_DEFAULT_LEVEL_INFO
+        default 4 if AT_LOG_DEFAULT_LEVEL_DEBUG
+        default 5 if AT_LOG_DEFAULT_LEVEL_VERBOSE
+
+endmenu
+
+
+menuconfig AT_DEBUG
+    bool "Enable ESP-AT Debug"
+    default n
+    help
+        Enabling this option allows different kinds of ESP-AT debug output, and these debug outputs will be sent to the AT log port.
+        All ESP-AT debug features increase the size of the final binary.
+
+    config AT_TX_DATA_DEBUG
+        bool "Logging the data sent from AT to MCU (AT ----> MCU)"
+        depends on AT_DEBUG && (LOG_DEFAULT_LEVEL_INFO || LOG_DEFAULT_LEVEL_DEBUG || LOG_DEFAULT_LEVEL_VERBOSE)
+        default y
+
+    config AT_TX_DATA_MAX_LEN
+        int "The maximum length of the data sent from AT to MCU to be logged"
+        depends on AT_TX_DATA_DEBUG
+        default 8192
+        help
+            Logging the data with the length of AT_TX_DATA_MAX_LEN.
+            You can speed up the data transfer by setting a smaller value.
+
+    config AT_RX_DATA_DEBUG
+        bool "Logging the data received by AT from MCU (AT <---- MCU)"
+        depends on AT_DEBUG && (LOG_DEFAULT_LEVEL_INFO || LOG_DEFAULT_LEVEL_DEBUG || LOG_DEFAULT_LEVEL_VERBOSE)
+        default y
+
+    config AT_RX_DATA_MAX_LEN
+        int "The maximum length of the data received by AT from MCU to be logged"
+        depends on AT_RX_DATA_DEBUG
+        default 8192
+        help
+            Logging the data with the length of AT_RX_DATA_MAX_LEN.
+            You can speed up the data transfer by setting a smaller value.
+
+    config AT_WIFI_DUMP_STATIS_DEBUG
+        bool "Periodically dump Wi-Fi statistics"
+        depends on AT_DEBUG && (LOG_DEFAULT_LEVEL_INFO || LOG_DEFAULT_LEVEL_DEBUG || LOG_DEFAULT_LEVEL_VERBOSE)
+        default n
+
+    config AT_WIFI_DUMP_STATIS_INTV_MS
+        int "The interval of dumping Wi-Fi statistics (ms)"
+        depends on AT_WIFI_DUMP_STATIS_DEBUG
+        default 3000
+
+    config AT_NET_DEBUG
+        bool "Enable Network Debug"
+        depends on AT_DEBUG && (LOG_DEFAULT_LEVEL_INFO || LOG_DEFAULT_LEVEL_DEBUG || LOG_DEFAULT_LEVEL_VERBOSE)
+        default n
+        help
+            Enabling this option allows different kinds of network debug output, and these debug outputs will be sent to the AT log port.
+            Attention: this network debug feature does not support IP fragment and IPv6 till now.
+
+    config AT_NET_TCP_DEBUG
+        bool "Enable the TCP packet debug messages"
+        depends on AT_NET_DEBUG
+        default y
+        help
+            Enabling this option to monitor the outgoing (TX) and incoming (RX) packets of TCP or protocol based on TCP (SSL/HTTP/MQTT/WebSocket/etc).
+            It will print TCP packets information, which includes ip total len, tcp data len, tcp seq, tcp ack, src port, dest port, and tcp flags. TCP flags is the accumulation of CWR:128, ECN:64, Urgent:32, Ack:16, Push:8, Reset:4, SYN:2, FIN:1.
+
+    config AT_NET_TCP_DEBUG_PORT_LIST
+        string "Specify the list of TCP port numbers to monitor"
+        depends on AT_NET_TCP_DEBUG
+        default "0"
+        help
+            0 means all ports, and the port numbers should be separated by commas if monitor multiple ports.
+
+    config AT_NET_UDP_DEBUG
+        bool "Enable the UDP packet debug messages"
+        depends on AT_NET_DEBUG
+        default y
+        help
+            Enabling this option to monitor the outgoing (TX) and incoming (RX) packets of UDP or protocol based on UDP (DHCP/DNS/SNTP/mDNS/etc).
+            It will print UDP packets information, which includes ip total len, src port, dest port, and udp data len.
+
+    config AT_NET_UDP_DEBUG_TX_PORT_LIST
+        string "Specify the list of outgoing UDP (UDP TX) port numbers to monitor"
+        depends on AT_NET_UDP_DEBUG
+        default "0"
+        help
+            0 means all ports, and the port numbers should be separated by commas if monitor multiple ports.
+
+    config AT_NET_UDP_DEBUG_RX_PORT_LIST
+        string "Specify the list of incoming UDP (UDP RX) port numbers to monitor"
+        depends on AT_NET_UDP_DEBUG
+        default "53, 67, 68, 123"
+        help
+            The port number should be separated by commas if monitor multiple ports.
+            You should not set the port number to 0 to prevent UDP RX flooding.
+
+    config AT_NET_ICMP_DEBUG
+        bool "Enable the ICMP packet debug messages"
+        depends on AT_NET_DEBUG
+        default y
+        help
+            Enabling this option to monitor the outgoing (TX) and incoming (RX) packets of ICMP.
+            It will print ICMP packets information, which includes ip total len, icmp type, id, seq, and icmp data len.
+
 endmenu

@@ -1,26 +1,7 @@
 #!/usr/bin/env python
 #
-# 'build.py' is a top-level config/build command line tool for ESP-AT
-#
-# Copyright 2020 Espressif Systems (Shanghai) PTE LTD
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-# WARNING: we don't check for Python build-time dependencies until
-# check_environment() function below. If possible, avoid importing
-# any external libraries here - put in external script, or import in
-# their specific function instead.
+# SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import sys
@@ -39,7 +20,7 @@ else:
     sys_cmd = 'export'
     sys_delimiter = ':'
 
-at_targets = ['esp32', 'esp32c2', 'esp32c3', 'esp32c6']
+at_targets = ['esp32', 'esp32c2', 'esp32c3', 'esp32c5', 'esp32c6', 'esp32s2']
 at_macro_pairs = []
 
 def ESP_LOGI(x):
@@ -115,7 +96,7 @@ def at_sync_submodule(path, repo, branch, commit, redirect):
         if ret:
             raise Exception('git checkout failed! Please manually run:\r\n{}'.format(cmd))
 
-    if new_clone:        
+    if new_clone:
         # init submoules for cloned repository
         ret = subprocess.call('cd {} && git submodule init'.format(path), shell = True)
         if ret:
@@ -177,11 +158,18 @@ def at_submodules_update(platform, module):
         config_dir = os.path.join(os.getcwd(), 'module_config',  'module_{}_default'.format(platform.lower()))
 
     pairs = []
-    idf_ver_file = os.path.join(config_dir, 'IDF_VERSION')
+    ext_module_cfg = os.environ.get('AT_EXT_MODULE_CFG')
+    if ext_module_cfg and os.path.exists(os.path.join(ext_module_cfg, 'IDF_VERSION')):
+        idf_ver_file = os.path.join(ext_module_cfg, 'IDF_VERSION')
+    else:
+        idf_ver_file = os.path.join(config_dir, 'IDF_VERSION')
     at_parse_idf_version(idf_ver_file, pairs)
 
     try:
-        submodules_file = os.path.join(config_dir, 'submodules')
+        if ext_module_cfg and os.path.exists(os.path.join(ext_module_cfg, 'submodules')):
+            submodules_file = os.path.join(ext_module_cfg, 'submodules')
+        else:
+            submodules_file = os.path.join(config_dir, 'submodules')
         at_parse_submodules(submodules_file, pairs)
     except Exception as e:
         ESP_LOGE('Failed to parse submodules:"{}" ({})'.format(submodules_file, e))
@@ -193,17 +181,21 @@ def at_submodules_update(platform, module):
     ESP_LOGI('submodules check completed for updates.')
 
 def at_patch_if_config(platform, module):
-    config_dir = os.path.join(os.getcwd(), 'module_config', 'module_{}'.format(module.lower()))
-    if not os.path.exists(config_dir):
-        config_dir = os.path.join(os.getcwd(), 'module_config',  'module_{}_default'.format(platform.lower()))
-
-    fabspath = os.path.join(config_dir, 'patch.py')
-    if os.path.exists(fabspath):
-        cmd = 'python {}'.format(fabspath)
+    ext_module_cfg = os.environ.get('AT_EXT_MODULE_CFG')
+    if ext_module_cfg and os.path.exists(os.path.join(ext_module_cfg, 'patch')):
+        config_dir = ext_module_cfg
+    else:
+        config_dir = os.path.join(os.getcwd(), 'module_config', 'module_{}'.format(module.lower()))
+        if not os.path.exists(config_dir):
+            config_dir = os.path.join(os.getcwd(), 'module_config',  'module_{}_default'.format(platform.lower()))
+    patch_tool = os.path.join(os.getcwd(), 'tools', 'patch.py')
+    if os.path.exists(patch_tool) and os.path.exists(config_dir):
+        cmd = 'python {} {}'.format(patch_tool, config_dir)
         if subprocess.call(cmd, shell = True):
-            raise Exception('apply patch {} failed'.format(fabspath))
-
-    ESP_LOGI('patches check completed for updates.')
+            raise Exception('apply patches failed.')
+        ESP_LOGI('patches check completed for updates.')
+    else:
+        ESP_LOGE('patches update check has failed.')
 
 def build_project(platform_name, module_name, silence, build_args):
     tool = os.path.join('esp-idf', 'tools', 'idf.py')
@@ -230,7 +222,7 @@ def build_project(platform_name, module_name, silence, build_args):
     ret = subprocess.call(cmd, shell = True)
     if ret:
         raise Exception('idf.py build failed')
-    
+
     with open(os.path.join('build', 'flash_project_args'), 'r') as rd_f:
         with open(os.path.join('build', 'download.config'), 'w') as wr_f:
             data = rd_f.read().splitlines()
@@ -315,7 +307,7 @@ def choose_project_config():
                 sys.exit('"{}" configuration error, please delete and reconfigure it'.format(module_info_file))
             platform_name = info['platform']
             module_name = info['module']
-           
+
             if not platform_name in info_lists:
                 sys.exit('"{}" configuration error, please delete and reconfigure it'.format(module_info_file))
 
@@ -352,7 +344,7 @@ def choose_project_config():
 
     for i, module in enumerate(info_lists[platform_name]):
         if len(module['description']) > 0:
-            print('{}. {} (description: {})'.format(i + 1, module['module_name'], module['description']))
+            print('{}. {} (Firmware description: {})'.format(i + 1, module['module_name'], module['description']))
         else:
             print('{}. {}'.format(i + 1, module['module_name']))
     try:
